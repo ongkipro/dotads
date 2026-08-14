@@ -4,66 +4,63 @@ export interface NavItem {
   title: string;
   href: string;
   iconName: string;
-  badge?: string;
-  section?: string;
+  section: "Utama" | "Pemasaran & Operasional" | "Pengaturan" | "Operasional Platform" | "Pengaturan Platform";
 }
 
 export const ROLE_NAVIGATION: Record<Role, NavItem[]> = {
   SUPER_ADMIN: [
     { title: "Ringkasan Platform", href: "/super-admin", iconName: "LayoutDashboard", section: "Operasional Platform" },
-    { title: "Kelola Merchant SaaS", href: "/super-admin/tenants", iconName: "Building2", badge: "Aktif", section: "Operasional Platform" },
+    { title: "Merchant SaaS", href: "/super-admin/tenants", iconName: "Building2", section: "Operasional Platform" },
     { title: "Pengaturan Platform", href: "/super-admin/settings", iconName: "Settings", section: "Pengaturan Platform" },
     { title: "Log Audit Global", href: "/super-admin/audit-logs", iconName: "ShieldAlert", section: "Pengaturan Platform" },
   ],
   TENANT_OWNER: [
-    { title: "Ringkasan", href: "/admin", iconName: "LayoutDashboard", section: "Penjualan & Pesanan" },
-    { title: "Kelola Pesanan", href: "/admin/orders", iconName: "ShoppingCart", badge: "COD", section: "Penjualan & Pesanan" },
-    { title: "Produk & Katalog", href: "/admin/products", iconName: "Package", section: "Penjualan & Pesanan" },
+    { title: "Ringkasan", href: "/admin", iconName: "LayoutDashboard", section: "Utama" },
+    { title: "Pesanan", href: "/admin/orders", iconName: "ShoppingCart", section: "Utama" },
+    { title: "Katalog Produk", href: "/admin/products", iconName: "Package", section: "Utama" },
     
-    { title: "Pembuat Form", href: "/admin/builders/forms", iconName: "FileSpreadsheet", section: "Iklan & Landing Page" },
-    { title: "Pembuat Landing Page", href: "/admin/builders/pages", iconName: "Layers", section: "Iklan & Landing Page" },
-    { title: "Pelacakan Iklan CAPI", href: "/admin/tracking", iconName: "Radio", badge: "Meta & Google", section: "Iklan & Landing Page" },
-    
-    { title: "Ekspedisi Mengantar", href: "/admin/integrations/mengantar", iconName: "Truck", badge: "3PL", section: "Kurir & Operasional" },
-    { title: "Cek Ongkir & WA", href: "/admin/operations/shipping-check", iconName: "Search", section: "Kurir & Operasional" },
+    { title: "Landing Page Builder", href: "/admin/builders/pages", iconName: "Layers", section: "Pemasaran & Operasional" },
+    { title: "Form Builder COD", href: "/admin/builders/forms", iconName: "FileSpreadsheet", section: "Pemasaran & Operasional" },
+    { title: "Pelacakan Iklan CAPI", href: "/admin/tracking", iconName: "Radio", section: "Pemasaran & Operasional" },
+    { title: "Ekspedisi Mengantar", href: "/admin/integrations/mengantar", iconName: "Truck", section: "Pemasaran & Operasional" },
+    { title: "Cek Ongkir & WA", href: "/admin/operations/shipping-check", iconName: "Search", section: "Pemasaran & Operasional" },
+    { title: "Rekonsiliasi & Payment", href: "/admin/reconciliation", iconName: "Receipt", section: "Pemasaran & Operasional" },
+    { title: "Setting AutoLaris", href: "/admin/integrations/autolaris", iconName: "CreditCard", section: "Pemasaran & Operasional" },
 
-    { title: "Rekonsiliasi Keuangan", href: "/admin/reconciliation", iconName: "Receipt", badge: "Otomatis", section: "Keuangan & Payment" },
-    { title: "Payment AutoLaris", href: "/admin/integrations/autolaris", iconName: "CreditCard", section: "Keuangan & Payment" },
-
-    { title: "Pengaturan Toko", href: "/admin/settings/store", iconName: "Store", section: "Pengaturan & Sistem" },
-    { title: "Alamat Gudang", href: "/admin/settings/gudang", iconName: "MapPin", section: "Pengaturan & Sistem" },
-    { title: "Template WA CRM", href: "/admin/settings/crm", iconName: "MessageSquare", section: "Pengaturan & Sistem" },
-    { title: "Tim & Akses Anggota", href: "/admin/settings/members", iconName: "Users", section: "Pengaturan & Sistem" },
-    { title: "Domain Kustom", href: "/admin/settings/domains", iconName: "Globe", section: "Pengaturan & Sistem" },
-    { title: "Log Aktivitas", href: "/admin/settings/audit-logs", iconName: "ShieldCheck", section: "Pengaturan & Sistem" },
-    { title: "Profil Merchant", href: "/admin/profile", iconName: "User", section: "Pengaturan & Sistem" },
+    { title: "Identitas Toko", href: "/admin/settings/store", iconName: "Store", section: "Pengaturan" },
+    { title: "Alamat Gudang", href: "/admin/settings/gudang", iconName: "MapPin", section: "Pengaturan" },
+    { title: "Template WA CRM", href: "/admin/settings/crm", iconName: "MessageSquare", section: "Pengaturan" },
+    { title: "Anggota Tim", href: "/admin/settings/members", iconName: "Users", section: "Pengaturan" },
+    { title: "Domain Kustom", href: "/admin/settings/domains", iconName: "Globe", section: "Pengaturan" },
+    { title: "Log Aktivitas", href: "/admin/settings/audit-logs", iconName: "ShieldCheck", section: "Pengaturan" },
+    { title: "Profil Akun", href: "/admin/profile", iconName: "User", section: "Pengaturan" },
   ],
   ADMIN: [
-    { title: "Ringkasan", href: "/admin", iconName: "LayoutDashboard", section: "Penjualan & Pesanan" },
-    { title: "Kelola Pesanan", href: "/admin/orders", iconName: "ShoppingCart", section: "Penjualan & Pesanan" },
-    { title: "Produk & Katalog", href: "/admin/products", iconName: "Package", section: "Penjualan & Pesanan" },
-    { title: "Pembuat Form", href: "/admin/builders/forms", iconName: "FileSpreadsheet", section: "Iklan & Landing Page" },
-    { title: "Pembuat Landing Page", href: "/admin/builders/pages", iconName: "Layers", section: "Iklan & Landing Page" },
-    { title: "Pelacakan Iklan CAPI", href: "/admin/tracking", iconName: "Radio", section: "Iklan & Landing Page" },
-    { title: "Ekspedisi Mengantar", href: "/admin/integrations/mengantar", iconName: "Truck", section: "Kurir & Operasional" },
-    { title: "Rekonsiliasi Keuangan", href: "/admin/reconciliation", iconName: "Receipt", section: "Keuangan & Payment" },
+    { title: "Ringkasan", href: "/admin", iconName: "LayoutDashboard", section: "Utama" },
+    { title: "Pesanan", href: "/admin/orders", iconName: "ShoppingCart", section: "Utama" },
+    { title: "Katalog Produk", href: "/admin/products", iconName: "Package", section: "Utama" },
+    { title: "Landing Page Builder", href: "/admin/builders/pages", iconName: "Layers", section: "Pemasaran & Operasional" },
+    { title: "Form Builder COD", href: "/admin/builders/forms", iconName: "FileSpreadsheet", section: "Pemasaran & Operasional" },
+    { title: "Pelacakan Iklan CAPI", href: "/admin/tracking", iconName: "Radio", section: "Pemasaran & Operasional" },
+    { title: "Ekspedisi Mengantar", href: "/admin/integrations/mengantar", iconName: "Truck", section: "Pemasaran & Operasional" },
+    { title: "Rekonsiliasi & Payment", href: "/admin/reconciliation", iconName: "Receipt", section: "Pemasaran & Operasional" },
   ],
   ADVERTISER: [
-    { title: "Ringkasan", href: "/admin", iconName: "LayoutDashboard", section: "Iklan & Landing Page" },
-    { title: "Pembuat Form", href: "/admin/builders/forms", iconName: "FileSpreadsheet", section: "Iklan & Landing Page" },
-    { title: "Pembuat Landing Page", href: "/admin/builders/pages", iconName: "Layers", section: "Iklan & Landing Page" },
-    { title: "Pelacakan Iklan CAPI", href: "/admin/tracking", iconName: "Radio", badge: "Signal Engine", section: "Iklan & Landing Page" },
-    { title: "Katalog Produk", href: "/admin/products", iconName: "Package", section: "Penjualan & Pesanan" },
+    { title: "Ringkasan", href: "/admin", iconName: "LayoutDashboard", section: "Utama" },
+    { title: "Landing Page Builder", href: "/admin/builders/pages", iconName: "Layers", section: "Pemasaran & Operasional" },
+    { title: "Form Builder COD", href: "/admin/builders/forms", iconName: "FileSpreadsheet", section: "Pemasaran & Operasional" },
+    { title: "Pelacakan Iklan CAPI", href: "/admin/tracking", iconName: "Radio", section: "Pemasaran & Operasional" },
+    { title: "Katalog Produk", href: "/admin/products", iconName: "Package", section: "Utama" },
   ],
   CUSTOMER_SERVICE: [
-    { title: "Ringkasan", href: "/admin", iconName: "LayoutDashboard", section: "Penjualan & Pesanan" },
-    { title: "Kelola Pesanan", href: "/admin/orders", iconName: "ShoppingCart", badge: "Tindak Lanjut", section: "Penjualan & Pesanan" },
-    { title: "Status Pengiriman", href: "/admin/integrations/mengantar", iconName: "Truck", section: "Kurir & Operasional" },
-    { title: "Cek Ongkir & WA", href: "/admin/operations/shipping-check", iconName: "Search", section: "Kurir & Operasional" },
+    { title: "Ringkasan", href: "/admin", iconName: "LayoutDashboard", section: "Utama" },
+    { title: "Kelola Pesanan", href: "/admin/orders", iconName: "ShoppingCart", section: "Utama" },
+    { title: "Status Pengiriman", href: "/admin/integrations/mengantar", iconName: "Truck", section: "Pemasaran & Operasional" },
+    { title: "Cek Ongkir & WA", href: "/admin/operations/shipping-check", iconName: "Search", section: "Pemasaran & Operasional" },
   ],
   END_BUYER: [
-    { title: "Halaman Toko", href: "/", iconName: "Store", section: "Penjualan & Pesanan" },
-    { title: "Lacak Pesanan", href: "/orders/track", iconName: "Search", section: "Penjualan & Pesanan" },
+    { title: "Halaman Toko", href: "/", iconName: "Store", section: "Utama" },
+    { title: "Lacak Pesanan", href: "/orders/track", iconName: "Search", section: "Utama" },
   ],
 };
 
