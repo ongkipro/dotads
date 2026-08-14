@@ -5,6 +5,15 @@
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
+    "@dotads/api#build": {
+      "outputs": []
+    },
+    "@dotads/form-runtime#build": {
+      "outputs": []
+    },
+    "@dotads/integrations#build": {
+      "outputs": []
+    },
     "check": {
       "dependsOn": ["^check"]
     },

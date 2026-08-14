@@ -22,8 +22,8 @@
 
 ### Slice 2: Builders & Ad Tracking (`/admin/builders/*`, `/admin/tracking`)
 - [X] **Task 2.1: Perfect Form Builder Canvas & Presets**
-  - **Requirement:** Enhance `/admin/builders/forms` with preset templates (1-Step COD, 2-Step Hybrid, WA Lead), field ordering & custom input options (dropdowns/radios), live mobile/desktop device preview toggle, and script snippet generator (`<dotads-form>`).
-  - **Done when:** `pnpm --filter @dotads/admin build` passes without errors and form builder state supports template switching & JSON export.
+  - **Requirement:** Keep `/admin/builders/forms` and `<dotads-form>` aligned with the four canonical presets: `FULL` (1-Step COD), `HYBRID` (2-Step Progressive Checkout), `MIDDLE` (Compact 1.5-Step Direct Checkout), and `MINI` (2-Input WhatsApp Lead), including field ordering, custom inputs, device preview, and script generation.
+  - **Done when:** `FORM_ENGINE_PRESETS_SPEC.md` documents all four contracts, `pnpm --filter @dotads/admin build` passes, and the builder supports preset switching and JSON export.
 
 - [X] **Task 2.2: Perfect Landing Page Builder Canvas**
   - **Requirement:** Enhance `/admin/builders/pages` with section reordering/addition (Hero, Features, Video, Testimonials, Form Embed), live device preview frame, and layout spec JSON exporter/importer.
@@ -79,8 +79,8 @@
   - **Done when:** `pnpm test` passes and public product endpoints return active catalog facts with variant details.
 
 - [X] **Task 7.3: Dynamic Storefront Form Config Gateway (`GET /api/v1/public/form-config`)**
-  - **Requirement:** Resolve 1-step COD, 2-step hybrid, and lead form contracts with canonical product selection, warehouse origin, courier rates estimation, and regional COD eligibility.
-  - **Done when:** `pnpm test` passes and form config endpoint returns structured form schema with pricing and logistics boundaries.
+  - **Requirement:** Resolve `FULL`, `HYBRID`, `MIDDLE`, and `MINI` form contracts with canonical product selection, warehouse origin, courier-rate estimation, regional COD eligibility, draft-lead capture, and WhatsApp lead redirect as applicable.
+  - **Done when:** `pnpm test` passes 100% and the form-config endpoint returns a structured schema for each canonical preset with its pricing, logistics, and lead-capture boundaries.
 
 - [X] **Task 7.4: Embeddable Form Widget & Iframe Gateway (`<dotads-form>` / `/embed/form`)**
   - **Requirement:** Provide embeddable form script and iframe endpoint `/embed/form` with height postMessage sync, CSRF/Turnstile protection, and parent window payment/thanks redirection.
@@ -121,6 +121,17 @@
 - [X] **Task 11.1: Automated Stale/Unpaid Order Cleanup Cron & Manual Order Purge API**
   - **Requirement:** Implement scheduled worker job (`DELETE /api/v1/admin/orders/cleanup`) to clean unpaid or abandoned orders older than 7 days from `orders` and `order_items` tables, and support manual single/bulk order deletion in `/admin/orders`.
   - **Done when:** `pnpm test` passes and cleanup endpoint successfully purges abandoned orders older than 7 days.
+
+## Completed Documentation & Verification Tasks
+
+- [X] **Task DOC-1: Canonical Form Engine Presets Specification**
+  - **Requirement:** Document the runtime, state, submission, attribution, and UI contracts for `FULL`, `HYBRID`, `MIDDLE`, and `MINI`.
+  - **Done when:** `FORM_ENGINE_PRESETS_SPEC.md` is indexed as the canonical four-preset contract and all specification-pack references use the same preset set.
+
+- [X] **Task VER-1: Unified Monorepo Test Audit**
+  - **Requirement:** Run the unified monorepo test suite and record the exact result in `BUILD-LOG.md` and `STATUS.md`.
+  - **Done when:** `pnpm test` completes with all 5/5 suites passing (100%).
+
 ### Slice 12: Production VPS Coolify Deployment & Domain SSL Handoff (Standby)
 - [ ] **Task 12.1: Coolify Service Provisioning & Production Environment Deployment**
   - **Requirement:** Deploy production containers to VPS via Coolify when user authorizes remote deployment.

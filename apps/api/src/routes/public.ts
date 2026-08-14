@@ -57,15 +57,13 @@ publicRouter.openapi(
     let helpPhone = "628111222333";
 
     if (tenantId) {
-      const [store] = await db
-        .select()
-        .from(schema.stores)
-        .where(eq(schema.stores.tenantId, tenantId))
+      const [tenant] = await db
+        .select({ name: schema.tenants.name })
+        .from(schema.tenants)
+        .where(eq(schema.tenants.id, tenantId))
         .limit(1);
-      if (store) {
-        storeName = store.name;
-        logoUrl = store.logoUrl;
-        helpPhone = store.contactPhone || helpPhone;
+      if (tenant) {
+        storeName = tenant.name;
       }
     }
 
@@ -220,7 +218,7 @@ publicRouter.openapi(
           { id: "v1", name: "Hitam Space", priceMinor: 270000, stock: 50 },
           { id: "v2", name: "Silver Metal", priceMinor: 270000, stock: 49 },
         ],
-      });
+      }, 200);
     }
     return c.json({ error: "Product not found" }, 404);
   }
@@ -259,7 +257,7 @@ publicRouter.openapi(
     const tenantId = c.req.query("tenantId") || "2f2ca823-46bf-4ab5-a5fe-61a49d175fa8";
     return c.json({
       tenantId,
-      formType: "1-step-cod",
+      formType: "1-step-cod" as const,
       shippingOrigin: {
         cityName: "Jakarta Selatan",
         provinceName: "DKI Jakarta",
