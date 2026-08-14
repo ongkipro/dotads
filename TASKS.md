@@ -19,21 +19,22 @@
 - [X] **Phase 6: Mengantar Logistics, AutoLaris Payments & Multi-Platform Ad Outbox** (Production Mengantar API + AutoLaris QRIS/VA + Meta/GAds/TikTok outbox verified)
 - [X] **Phase 7: Integrated Verification & Release Build** (`pnpm build` & `pnpm run smoke:release` 100% verified)
 - [X] **Phase 8: Advanced Operational Security & Bot Protection** (Turnstile Bot Shield + Dynamic IP Rate Limiting verified)
+- [X] **Phase 9: Comprehensive Indonesian Market UI/UX Audit & Screening** (Screening 25 static admin pages, select-by-select functionality, Bahasa Indonesia polish verified)
 
 ---
 
 ## Next Actionable Follow-up Phases & Tasks
 
-### Phase 9: High-Availability VPS Infrastructure & Production Deployment (Pending)
-- [ ] **Task 9.1: Coolify Docker Compose Setup with PgBouncer**
+### Phase 10: High-Availability VPS Infrastructure & Production Deployment (Pending)
+- [ ] **Task 10.1: Coolify Docker Compose Setup with PgBouncer**
   - **Requirement:** Create production `docker-compose.yml` spec including PostgreSQL connection pooler (PgBouncer) tuned for handling high-concurrency Meta Ads traffic spikes.
   - **Done when:** `docker compose config` validates without errors.
 
-- [ ] **Task 9.2: Automated Backup & Database Migration Cron**
+- [ ] **Task 10.2: Automated Backup & Database Migration Cron**
   - **Requirement:** Configure automated PostgreSQL logical backup script and migration verification hook before production release.
   - **Done when:** Backup script successfully creates encrypted `.sql.gz` dump.
 
-### Phase 10: Logistics Dead-Letter Queue (DLQ) & Webhook Monitoring (Pending)
-- [ ] **Task 10.1: Mengantar Failed Dispatch Auto-Retry Engine**
+### Phase 11: Logistics Dead-Letter Queue (DLQ) & Webhook Monitoring (Pending)
+- [ ] **Task 11.1: Mengantar Failed Dispatch Auto-Retry Engine**
   - **Requirement:** Implement exponential backoff retry worker for failed Mengantar waybill requests (e.g. temporary API timeout).
   - **Done when:** Failed dispatch automatically retries up to 3 times before marking as DLQ.
