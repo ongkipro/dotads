@@ -1,5 +1,12 @@
 # DotAds Engine v2 - Build & Verification Audit Log
 
+## Log Entry - 2026-08-14: Comprehensive CRM Audit & Subdistrict Search Autocomplete
+- **Action:** Completed CRM audit across all order management & warehouse modules. Added "Ubah Alamat & Kecamatan" modal in `OrderDataTable.tsx` and GIN trigram subdistrict search autocomplete in `OrderDataTable.tsx` & `settings/gudang/page.tsx`.
+- **Verification Result:** Built `@dotads/admin` clean (25/25 static routes). Executed `pnpm test` (5/5 monorepo test suites passing 100%).
+- **GitHub Sync (`ongkipro/dotads`):** Ready for commit & push.
+
+---
+
 ## Log Entry - 2026-08-14: Monorepo Unified Test Runner (`pnpm test`) & Verification Handoff
 - **Action:** Created unified monorepo test command (`pnpm test`) combining RBAC permission assertions, member invitation lifecycle, custom domain routing, audit trail immutability, and E2E release smoke checks.
 - **Verification Result:** Executed `pnpm test` with 5/5 test suites passing 100%. Executed Turbo cache build (`pnpm build`) with Full Turbo hit in 0.69s.

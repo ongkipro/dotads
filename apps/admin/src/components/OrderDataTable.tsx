@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   CreditCard,
@@ -9,13 +9,13 @@ import {
   MapPin,
   MessageSquare,
   PackageCheck,
+  Pencil,
   Printer,
   Search,
   ShieldAlert,
   Truck,
   X,
 } from "lucide-react";
-
 export type OrderLifecycleStatus = "PENDING" | "PAID" | "SHIPPED" | "COMPLETED" | "RTS";
 
 type OrderTab = "ALL" | OrderLifecycleStatus;
@@ -76,6 +76,19 @@ const IDR_FORMATTER = new Intl.NumberFormat("id-ID", {
   currency: "IDR",
   maximumFractionDigits: 0,
 });
+
+const DISTRICT_DATABASE = [
+  { name: "Kebayoran Baru", city: "Jakarta Selatan", province: "DKI Jakarta", postalCode: "12110" },
+  { name: "Kebon Jeruk", city: "Jakarta Barat", province: "DKI Jakarta", postalCode: "11530" },
+  { name: "Kebayoran Lama", city: "Jakarta Selatan", province: "DKI Jakarta", postalCode: "12240" },
+  { name: "Cibinong", city: "Kabupaten Bogor", province: "Jawa Barat", postalCode: "16911" },
+  { name: "Lowokwaru", city: "Kota Malang", province: "Jawa Timur", postalCode: "65141" },
+  { name: "Denpasar Selatan", city: "Kota Denpasar", province: "Bali", postalCode: "80221" },
+  { name: "Cicendo", city: "Kota Bandung", province: "Jawa Barat", postalCode: "40172" },
+  { name: "Coblong", city: "Kota Bandung", province: "Jawa Barat", postalCode: "40132" },
+  { name: "Genteng", city: "Surabaya", province: "Jawa Timur", postalCode: "60271" },
+  { name: "Medan Barat", city: "Medan", province: "Sumatera Utara", postalCode: "20111" },
+];
 
 const SAMPLE_ORDERS: OrderRow[] = [
   {
@@ -205,15 +218,28 @@ export function OrderDataTable() {
   const [selectedStatus, setSelectedStatus] = useState<OrderTab>("ALL");
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
+  const [editingAddressOrder, setEditingAddressOrder] = useState<OrderRow | null>(null);
+  const [editCustomerName, setEditCustomerName] = useState("");
+  const [editCustomerPhone, setEditCustomerPhone] = useState("");
+  const [editShippingAddress, setEditShippingAddress] = useState("");
+  const [districtQuery, setDistrictQuery] = useState("");
+  const [showDistrictSuggestions, setShowDistrictSuggestions] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimerRef = useRef<number | undefined>(undefined);
+
+  const districtSuggestions = useMemo(() => {
+    const term = districtQuery.trim().toLowerCase();
+    if (!term) return [];
+    return DISTRICT_DATABASE.filter((item) =>
+      `${item.name} ${item.city} ${item.province} ${item.postalCode}`.toLowerCase().includes(term),
+    );
+  }, [districtQuery]);
 
   useEffect(
     () => () => {
       window.clearTimeout(toastTimerRef.current);
     },
-    [],
   );
 
   const filteredOrders = useMemo(() => {
@@ -597,15 +623,32 @@ export function OrderDataTable() {
                   <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
                     <MapPin className="h-4 w-4" /> Pelanggan dan alamat
                   </h3>
-                  <a
-                    href={buildWhatsAppUrl(selectedOrder.customerPhone, selectedOrder.orderNumber, selectedOrder.customerName)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:underline"
-                  >
-                    <MessageSquare className="h-3.5 w-3.5" />
-                    Hubungi via WhatsApp
-                  </a>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!selectedOrder) return;
+                        setEditingAddressOrder(selectedOrder);
+                        setEditCustomerName(selectedOrder.customerName);
+                        setEditCustomerPhone(selectedOrder.customerPhone);
+                        setEditShippingAddress(selectedOrder.shippingAddress);
+                        setDistrictQuery("");
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-700 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Ubah Alamat
+                    </button>
+                    <a
+                      href={buildWhatsAppUrl(selectedOrder.customerPhone, selectedOrder.orderNumber, selectedOrder.customerName)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:underline"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      Hubungi via WhatsApp
+                    </a>
+                  </div>
                 </div>
                 <div className="rounded-xl border border-slate-200/80 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/60">
                   <p className="mb-0.5 text-base font-bold text-slate-900 dark:text-slate-100">{selectedOrder.customerName}</p>
@@ -615,7 +658,6 @@ export function OrderDataTable() {
                   </p>
                 </div>
               </section>
-
               <section>
                 <h3 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
                   <CreditCard className="h-4 w-4" /> Pembayaran dan kurir
@@ -687,10 +729,147 @@ export function OrderDataTable() {
                 onClick={() => setSelectedOrder(null)}
                 className="w-full rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
-                Tutup detail
+                Tutup Detail
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {editingAddressOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <form
+            onSubmit={(e: FormEvent) => {
+              e.preventDefault();
+              if (!editingAddressOrder) return;
+              const updatedAddress = editShippingAddress.trim();
+              const updatedOrders = orders.map((o) =>
+                o.id === editingAddressOrder.id
+                  ? {
+                      ...o,
+                      customerName: editCustomerName.trim(),
+                      customerPhone: editCustomerPhone.trim(),
+                      shippingAddress: updatedAddress,
+                      rtsRiskScore: Math.max(5, Math.floor(o.rtsRiskScore * 0.8)),
+                    }
+                  : o,
+              );
+              setOrders(updatedOrders);
+              if (selectedOrder && selectedOrder.id === editingAddressOrder.id) {
+                setSelectedOrder({
+                  ...selectedOrder,
+                  customerName: editCustomerName.trim(),
+                  customerPhone: editCustomerPhone.trim(),
+                  shippingAddress: updatedAddress,
+                  rtsRiskScore: Math.max(5, Math.floor(selectedOrder.rtsRiskScore * 0.8)),
+                });
+              }
+              setEditingAddressOrder(null);
+              showNotification(`Alamat pengiriman ${editingAddressOrder.orderNumber} berhasil diperbarui.`);
+            }}
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 p-5 dark:border-slate-800">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Ubah Alamat & Kecamatan Pelanggan</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Pesanan {editingAddressOrder.orderNumber}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingAddressOrder(null)}
+                aria-label="Tutup modal ubah alamat"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4 p-5">
+              <label className="block space-y-1 text-xs font-bold text-slate-700 dark:text-slate-300">
+                <span>Nama Pelanggan</span>
+                <input
+                  required
+                  value={editCustomerName}
+                  onChange={(e) => setEditCustomerName(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 p-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </label>
+              <label className="block space-y-1 text-xs font-bold text-slate-700 dark:text-slate-300">
+                <span>Nomor WhatsApp</span>
+                <input
+                  required
+                  value={editCustomerPhone}
+                  onChange={(e) => setEditCustomerPhone(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 p-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </label>
+
+              <div className="relative space-y-1 text-xs font-bold text-slate-700 dark:text-slate-300">
+                <span>Cari & Otomatis Isi Kecamatan</span>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="search"
+                    placeholder="Ketik nama kecamatan/kota (contoh: Kebayoran Baru, Coblong)..."
+                    value={districtQuery}
+                    onChange={(e) => {
+                      setDistrictQuery(e.target.value);
+                      setShowDistrictSuggestions(true);
+                    }}
+                    onFocus={() => setShowDistrictSuggestions(true)}
+                    className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  />
+                </div>
+                {showDistrictSuggestions && districtSuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 z-20 mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-800">
+                    {districtSuggestions.map((d) => (
+                      <button
+                        key={`${d.name}-${d.postalCode}`}
+                        type="button"
+                        onClick={() => {
+                          setEditShippingAddress((prev) => {
+                            const suffix = `${d.name}, ${d.city}, ${d.province} ${d.postalCode}`;
+                            return prev ? `${prev.split(",")[0]}, ${suffix}` : suffix;
+                          });
+                          setDistrictQuery(`${d.name}, ${d.city}`);
+                          setShowDistrictSuggestions(false);
+                        }}
+                        className="flex w-full flex-col text-left rounded-lg p-2.5 transition-colors hover:bg-indigo-50 dark:hover:bg-slate-700"
+                      >
+                        <span className="font-bold text-slate-900 dark:text-slate-100">{d.name}</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">{d.city}, {d.province} · {d.postalCode}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <label className="block space-y-1 text-xs font-bold text-slate-700 dark:text-slate-300">
+                <span>Alamat Lengkap (Jalan, RT/RW, Kecamatan, Kota)</span>
+                <textarea
+                  required
+                  rows={3}
+                  value={editShippingAddress}
+                  onChange={(e) => setEditShippingAddress(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 p-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </label>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-slate-100 p-5 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setEditingAddressOrder(null)}
+                className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-700"
+              >
+                Simpan Alamat
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

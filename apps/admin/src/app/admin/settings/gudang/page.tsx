@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { Building, CheckCircle2, MapPin, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useMemo, useState, type FormEvent } from "react";
+import { Building, CheckCircle2, MapPin, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 
 interface Warehouse {
   id: number;
@@ -15,6 +15,19 @@ interface Warehouse {
 }
 
 type WarehouseForm = Omit<Warehouse, "id" | "isDefault">;
+
+const DISTRICT_DATABASE = [
+  { name: "Kebayoran Baru", city: "Jakarta Selatan", province: "DKI Jakarta", postalCode: "12110" },
+  { name: "Kebon Jeruk", city: "Jakarta Barat", province: "DKI Jakarta", postalCode: "11530" },
+  { name: "Kebayoran Lama", city: "Jakarta Selatan", province: "DKI Jakarta", postalCode: "12240" },
+  { name: "Cibinong", city: "Kabupaten Bogor", province: "Jawa Barat", postalCode: "16911" },
+  { name: "Lowokwaru", city: "Kota Malang", province: "Jawa Timur", postalCode: "65141" },
+  { name: "Denpasar Selatan", city: "Kota Denpasar", province: "Bali", postalCode: "80221" },
+  { name: "Cicendo", city: "Kota Bandung", province: "Jawa Barat", postalCode: "40172" },
+  { name: "Coblong", city: "Kota Bandung", province: "Jawa Barat", postalCode: "40132" },
+  { name: "Genteng", city: "Surabaya", province: "Jawa Timur", postalCode: "60271" },
+  { name: "Medan Barat", city: "Medan", province: "Sumatera Utara", postalCode: "20111" },
+];
 
 const emptyForm: WarehouseForm = {
   name: "",
@@ -34,8 +47,18 @@ export default function GudangSettingsPage() {
   const [locations, setLocations] = useState(initialWarehouses);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<WarehouseForm>(emptyForm);
+  const [districtQuery, setDistrictQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [notification, setNotification] = useState("");
+
+  const districtSuggestions = useMemo(() => {
+    const term = districtQuery.trim().toLowerCase();
+    if (!term) return [];
+    return DISTRICT_DATABASE.filter((item) =>
+      `${item.name} ${item.city} ${item.province} ${item.postalCode}`.toLowerCase().includes(term),
+    );
+  }, [districtQuery]);
 
   const showNotification = (message: string) => {
     setNotification(message);
@@ -155,14 +178,57 @@ export default function GudangSettingsPage() {
               <button type="button" onClick={() => setIsModalOpen(false)} aria-label="Tutup" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="h-5 w-5" /></button>
             </div>
             <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
-              <label className="space-y-1.5 text-xs font-semibold text-slate-700 sm:col-span-2"><span className="block">Nama gudang</span><input required autoFocus value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20" /></label>
-              <label className="space-y-1.5 text-xs font-semibold text-slate-700 sm:col-span-2"><span className="block">Alamat lengkap</span><textarea required rows={3} value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20" /></label>
+              <label className="space-y-1.5 text-xs font-semibold text-slate-700 sm:col-span-2">
+                <span className="block">Nama gudang</span>
+                <input required autoFocus value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20" />
+              </label>
+
+              <div className="relative space-y-1.5 text-xs font-semibold text-slate-700 sm:col-span-2">
+                <span className="block">Cari & otomatis isi kecamatan</span>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="search"
+                    placeholder="Ketik nama kecamatan atau kota (contoh: Kebayoran)..."
+                    value={districtQuery}
+                    onChange={(e) => {
+                      setDistrictQuery(e.target.value);
+                      setShowSuggestions(true);
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
+                    className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
+                  />
+                </div>
+                {showSuggestions && districtSuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 z-20 mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                    {districtSuggestions.map((d) => (
+                      <button
+                        key={`${d.name}-${d.postalCode}`}
+                        type="button"
+                        onClick={() => {
+                          setForm({ ...form, city: d.city, province: d.province, postalCode: d.postalCode });
+                          setDistrictQuery(`${d.name}, ${d.city}`);
+                          setShowSuggestions(false);
+                        }}
+                        className="flex w-full flex-col text-left rounded-lg p-2.5 transition-colors hover:bg-indigo-50"
+                      >
+                        <span className="font-bold text-slate-900">{d.name}</span>
+                        <span className="text-xs text-slate-500">{d.city}, {d.province} · {d.postalCode}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <label className="space-y-1.5 text-xs font-semibold text-slate-700 sm:col-span-2">
+                <span className="block">Alamat jalan & detail</span>
+                <textarea required rows={3} value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20" />
+              </label>
               <label className="space-y-1.5 text-xs font-semibold text-slate-700"><span className="block">Kota/Kabupaten</span><input required value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20" /></label>
               <label className="space-y-1.5 text-xs font-semibold text-slate-700"><span className="block">Provinsi</span><input required value={form.province} onChange={(event) => setForm({ ...form, province: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20" /></label>
               <label className="space-y-1.5 text-xs font-semibold text-slate-700"><span className="block">Kode pos</span><input required inputMode="numeric" value={form.postalCode} onChange={(event) => setForm({ ...form, postalCode: event.target.value.replace(/\D/g, "") })} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20" /></label>
               <label className="space-y-1.5 text-xs font-semibold text-slate-700"><span className="block">Nomor kontak</span><input required type="tel" value={form.contactPhone} onChange={(event) => setForm({ ...form, contactPhone: event.target.value.replace(/\D/g, "") })} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20" /></label>
             </div>
-            <div className="flex justify-end gap-3 border-t border-slate-100 p-5"><button type="button" onClick={() => setIsModalOpen(false)} className="rounded-xl px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">Batal</button><button type="submit" className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">{editingId === null ? "Tambah Gudang" : "Simpan Perubahan"}</button></div>
           </form>
         </div>
       )}
