@@ -38,3 +38,25 @@
    - `pnpm --filter @dotads/admin build`: **PASS** (21 prerendered static routes generated).
    - `pnpm --filter @dotads/storefront build`: **PASS** (Astro 5 zero-JS static storefront & thank-you page generated).
    - Live Daemons: `dotads-api` (Port 8787), `dotads-admin` (Port 3000), `dotads-storefront` (Port 4321) verified live on Tailscale IP `100.127.67.86`.
+
+## Log Entry — 2026-08-14: 3-Loop End-to-End QA, Production Integrations, Super Admin Fleet, & 100% Release Smoke Test
+
+- **Action:** Conducted 3-loop iterative test-fix-develop-validate cycles across Super Admin, Tenant Admin, Storefront, API, and Integration layers.
+- **Subagent Orchestration:** Dispatched concurrent specialist subagents (`scout` QABugTester, `designer` BuilderAndStorefrontDev, `complex-developer` ProductionIntegrationsDev, `complex-developer` SuperAdminPagesDeveloper, `reviewer` EndToEndReleaseTester) operating in parallel task batches under OMP auto-orchestration.
+
+### Verification Footprint & Enhancements:
+
+1. **Loop 1 — Screening & Production Integration:**
+   - **Mengantar Logistics Adapter (`packages/integrations/src/mengantar.ts`):** Upgraded to production endpoint `https://api-public.mengantar.com` with origin area `5fc62f63f8f44b34aa4c0e0a` and pickup address `60a7e58129a00812ab99011a`. Added fallback waybill generator (`MNTR_*`) for offline/sandbox execution.
+   - **AutoLaris Payment Adapter (`packages/integrations/src/autolaris.ts`):** Upgraded to production endpoint `https://api-h2h.autolaris.com` with constant-time HMAC-SHA256 signature verification and live QRIS EMV payload formatter.
+   - **Form & Page Builders (`apps/admin`):** Upgraded Form Builder (`/admin/builders/forms`) and Page Builder (`/admin/builders/pages`) with interactive drag/add/remove section controls, live desktop/mobile preview switchers, and JSON schema exporter.
+
+2. **Loop 2 — Missing Super Admin & Operations Routes:**
+   - `/admin/operations/shipping-check/page.tsx`: Interactive Cek Ongkir 3PL comparison tool (JNE, SiCepat, J&T, SAP) with WhatsApp number validation.
+   - `/super-admin/tenants/page.tsx`: Super Admin Tenant Fleet Manager with search, filter, status toggles, and modal tenant provisioning.
+   - `/super-admin/settings/page.tsx`: Platform-wide settings configuration panel for Super Admins.
+   - `/super-admin/audit-logs/page.tsx`: Global Audit Trail viewer with event filtering and payload detail modal.
+
+3. **Loop 3 — Full Release Certification:**
+   - **Admin Static Build (`pnpm --filter @dotads/admin build`):** **PASS** (100% clean compilation, pre-rendering all 25 static routes).
+   - **Release Smoke Test (`pnpm run smoke:release`):** **PASS** (All 7 steps passed cleanly: Database Tenants, Receiver Risk Scoring, Order Intake, Multi-Platform CAPI Outbox, Mengantar Dispatch Queue, and AutoLaris Payment Reconciliation).

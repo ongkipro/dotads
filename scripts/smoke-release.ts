@@ -45,6 +45,8 @@ async function runReleaseSmoke() {
       customerPhone: "081298765432",
       shippingAddress: "Jl. Sudirman No. 1, Jakarta",
       subdistrictId: "ID_SUB_1001",
+      courierCode: "JNE",
+      courierService: "REG",
       subtotalMinor: 150000,
       shippingCostMinor: 20000,
       totalMinor: 170000,
@@ -53,6 +55,24 @@ async function runReleaseSmoke() {
     .returning();
   assert.ok(order, "Order record must be created successfully");
   console.log(`  ✓ Created Order: ${order.orderNumber} (ID: ${order.id})`);
+
+  const [seededProduct] = await db
+    .select()
+    .from(schema.products)
+    .where(eq(schema.products.tenantId, tenant.id))
+    .limit(1);
+  assert.ok(seededProduct, "Database must contain at least one seeded product for weight lookup");
+  await db.insert(schema.orderItems).values({
+    tenantId: tenant.id,
+    orderId: order.id,
+    productId: seededProduct.id,
+    productName: seededProduct.name,
+    sku: seededProduct.gtin ?? undefined,
+    priceMinor: seededProduct.priceMinor,
+    quantity: 1,
+    subtotalMinor: seededProduct.priceMinor,
+  });
+  console.log(`  ✓ Attached Order Item: ${seededProduct.name} (${seededProduct.weightGrams}g)`);
 
   // 4. Test Multi-Platform Outbox Fan-out
   console.log("\n[4/7] Testing Multi-Platform Outbox Conversion Fan-out...");
@@ -92,8 +112,6 @@ async function runReleaseSmoke() {
   await db.insert(schema.mengantarDispatchQueue).values({
     tenantId: tenant.id,
     orderId: order.id,
-    courierCode: "JNE",
-    serviceName: "REG",
     status: "pending",
   });
 
