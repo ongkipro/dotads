@@ -1,0 +1,254 @@
+openapi: 3.1.0
+info:
+  title: DotAds Engine v2 API
+  version: 1.0.0
+servers:
+  - url: https://api.namadomain.com
+  - url: http://localhost:8787
+security:
+  - bearerAuth: []
+    tenantHeader: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    tenantHeader:
+      type: apiKey
+      in: header
+      name: X-Tenant-ID
+paths:
+  /api/v1/auth/login:
+    post:
+      summary: Login
+  /api/v1/auth/logout:
+    post:
+      summary: Logout
+  /api/v1/auth/me:
+    get:
+      summary: Current session
+  /api/v1/tenants:
+    get:
+      summary: List tenants
+    post:
+      summary: Create tenant
+  /api/v1/admin/domains:
+    get:
+      summary: List tenant domains
+    post:
+      summary: Add tenant domain
+  /api/v1/admin/domains/{id}:
+    patch:
+      summary: Update domain primary state
+    delete:
+      summary: Remove domain
+  /api/v1/admin/domains/{id}/verify:
+    post:
+      summary: Verify domain
+  /api/v1/products:
+    get:
+      summary: List products
+    post:
+      summary: Create product
+  /api/v1/products/{id}:
+    get:
+      summary: Get product
+    put:
+      summary: Update product
+    delete:
+      summary: Delete product
+  /api/v1/orders:
+    get:
+      summary: List orders
+    post:
+      summary: Create order (authenticated admin/CS intake)
+  /api/v1/orders/{id}:
+    get:
+      summary: Get order
+  /api/v1/orders/{id}/status:
+    patch:
+      summary: Update order status
+  /api/v1/shipping/rates:
+    post:
+      summary: Resolve shipping rates
+  /api/v1/shipping/dispatch:
+    post:
+      summary: Enqueue Mengantar dispatch
+  /api/v1/shipping/waybill/{id}:
+    get:
+      summary: Get waybill detail
+  /api/v1/payments/create:
+    post:
+      summary: Create AutoLaris payment session
+  /api/v1/webhooks/autolaris:
+    post:
+      summary: AutoLaris webhook
+  /api/v1/webhooks/mengantar/{tenant_id}:
+    post:
+      summary: Mengantar webhook (tenant-scoped, HMAC-SHA256 signed)
+      security: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: x-mengantar-signature
+          in: header
+          required: true
+          schema:
+            type: string
+          description: HMAC-SHA256 of the raw request body, keyed by the tenant's per-tenant Mengantar webhook secret.
+      responses:
+        '200':
+          description: Webhook accepted
+        '401':
+          description: Invalid or missing signature
+  /api/v1/tracking/meta-capi:
+    post:
+      summary: Accept Meta CAPI event/outbox payload
+  /api/v1/tracking/google-ads:
+    post:
+      summary: Accept Google Ads Enhanced Conversion / Offline Conversion outbox payload
+  /api/v1/tracking/tiktok:
+    post:
+      summary: Accept TikTok Events API v2 outbox payload
+  /api/v1/forms/{id}:
+    get:
+      summary: Get form schema
+  /api/v1/forms:
+    post:
+      summary: Create form schema
+
+  /api/v1/public/products:
+    get:
+      summary: List active catalog products, variants, media & auto Google Categories
+      security:
+        - tenantHeader: []
+      parameters:
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated product catalog
+  /api/v1/public/products/{slug}:
+    get:
+      summary: Get single product detail with GTIN, stock & variant matrix
+      security:
+        - tenantHeader: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Product detail
+        '404':
+          description: Product not found
+  /api/v1/public/regions/search:
+    get:
+      summary: Fast Kecamatan autocomplete (<15ms) via pre-seeded GIN Trigram DB
+      security:
+        - tenantHeader: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matching subdistrict (kecamatan) records
+  /api/v1/public/shipping/rates:
+    post:
+      summary: Calculate live Mengantar 3PL rates + fallback zone fee adjustments
+      security:
+        - tenantHeader: []
+      parameters:
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Available courier services and rates
+  /api/v1/public/orders/draft-lead:
+    post:
+      summary: Capture abandoned-checkout draft lead (Name + Phone) instantly
+      security:
+        - tenantHeader: []
+      parameters:
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Draft lead recorded
+  /api/v1/public/orders:
+    post:
+      summary: Create full order, auto-push to Mengantar 3PL & fire Meta/Google/TikTok CAPI
+      security:
+        - tenantHeader: []
+      parameters:
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Order created
+  /api/v1/public/catalog/google-shopping.xml:
+    get:
+      summary: Google Shopping XML Feed
+      description: >-
+        Polled directly by Google Merchant Center's feed fetcher, which cannot attach
+        custom request headers, so the tenant is resolved from the `tenant_id` query
+        parameter rather than the `X-Tenant-ID` header used by authenticated routes.
+      security: []
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: XML Catalog Feed
+  /api/v1/public/catalog/meta-catalog.json:
+    get:
+      summary: Meta Commerce Catalog JSON Feed
+      description: >-
+        Polled directly by Meta Commerce Manager's catalog auto-sync fetcher, which
+        cannot attach custom request headers, so the tenant is resolved from the
+        `tenant_id` query parameter rather than the `X-Tenant-ID` header used by
+        authenticated routes.
+      security: []
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: JSON Catalog Feed
