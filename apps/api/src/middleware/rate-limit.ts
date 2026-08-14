@@ -2,9 +2,24 @@ import type { Context, Next } from "hono";
 
 const requestCounts = new Map<string, { count: number; resetAt: number }>();
 
+if (typeof setInterval !== "undefined") {
+  const timer = setInterval(() => {
+    const now = Date.now();
+    for (const [key, record] of requestCounts.entries()) {
+      if (now > record.resetAt) {
+        requestCounts.delete(key);
+      }
+    }
+  }, 5 * 60 * 1000);
+  const unrefTimer = timer as unknown as { unref?: () => void };
+  if (typeof unrefTimer?.unref === "function") {
+    unrefTimer.unref();
+  }
+}
+
 export async function rateLimitMiddleware(c: Context, next: Next) {
-  const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "127.0.0.1";
-  const tenantId = c.req.header("x-tenant-id") || c.req.header("host") || "global";
+  const ip = c.req.header("cf-connecting-ip") || c.req.header("x-real-ip") || c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
+  const tenantId = c.req.header("host") || "global";
   const rateKey = `${tenantId}:${ip}`;
   const now = Date.now();
   const windowMs = 60 * 1000; // 1 minute

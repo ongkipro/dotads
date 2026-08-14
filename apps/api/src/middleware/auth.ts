@@ -20,12 +20,8 @@ export type AppEnv = {
 export async function authMiddleware(c: Context<AppEnv>, next: Next) {
   const sessionToken = c.req.header("Authorization")?.replace("Bearer ", "") || c.req.header("x-session-token");
 
-  if (!sessionToken) {
-    return c.json({ error: "Unauthorized: Missing session token" }, 401);
-  }
-
-  // Dev/Smoke Test Session Bypass
-  if (sessionToken === "test-superadmin-token") {
+  // Test-only session bypass
+  if (process.env.NODE_ENV === "test" && sessionToken === "test-superadmin-token") {
     const role = (c.req.header("x-user-role") as Role) || "SUPER_ADMIN";
     c.set("auth", {
       userId: c.req.header("x-user-id") || "usr_superadmin_01",
@@ -43,14 +39,20 @@ export async function authMiddleware(c: Context<AppEnv>, next: Next) {
   });
 
   if (!sessionRes || !sessionRes.user) {
-    return c.json({ error: "Unauthorized: Invalid or expired session" }, 401);
+    const sessionCookieName = (await auth.$context).authCookies.sessionToken.name;
+    const hasSessionCookie = c.req.header("cookie")?.includes(`${sessionCookieName}=`);
+    const message =
+      !sessionToken && !hasSessionCookie
+        ? "Unauthorized: Missing session token"
+        : "Unauthorized: Invalid or expired session";
+    return c.json({ error: message }, 401);
   }
 
   const userId = sessionRes.user.id;
   const activeOrgId = sessionRes.session.activeOrganizationId;
-  // Resolve tenantId and Role
+  // Resolve tenant identity and organization-scoped role. Super Admin is global.
   let tenantId = "";
-  let role: Role = "END_BUYER";
+  let role: Role = sessionRes.user.role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "END_BUYER";
 
   if (activeOrgId) {
     const [org] = await db.select().from(schema.organizations).where(eq(schema.organizations.id, activeOrgId));
@@ -68,9 +70,9 @@ export async function authMiddleware(c: Context<AppEnv>, next: Next) {
     }
   }
 
-  // Header override for dev smoke tests if x-tenant-id provided
+  // Test-only tenant override
   const headerTenant = c.req.header("x-tenant-id");
-  if (headerTenant && !tenantId) {
+  if (process.env.NODE_ENV === "test" && headerTenant && !tenantId) {
     tenantId = headerTenant;
   }
 

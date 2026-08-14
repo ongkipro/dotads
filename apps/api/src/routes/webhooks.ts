@@ -2,7 +2,7 @@ import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { db, schema } from "@dotads/db";
 import { eq } from "drizzle-orm";
 import crypto from "node:crypto";
-import { reconcilePaymentStatus } from "@dotads/integrations";
+import { reconcilePaymentStatus, verifyAutoLarisSignature } from "@dotads/integrations";
 
 export const webhooksRouter = new OpenAPIHono();
 
@@ -131,11 +131,31 @@ webhooksRouter.openapi(
           },
         },
       },
+      401: {
+        description: "Unauthorized: Invalid or missing HMAC signature",
+        content: {
+          "application/json": {
+            schema: z.object({ error: z.string() }),
+          },
+        },
+      },
+      500: {
+        description: "Server error",
+        content: {
+          "application/json": {
+            schema: z.object({ error: z.string() }),
+          },
+        },
+      },
     },
   }),
   async (c) => {
     const rawBodyText = await c.req.text();
     const signatureHeader = c.req.header("x-autolaris-signature") || c.req.header("x-signature");
+
+    if (!signatureHeader) {
+      return c.json({ error: "Unauthorized: Missing HMAC signature header" }, 401);
+    }
 
     let body: any;
     try {
@@ -161,24 +181,23 @@ webhooksRouter.openapi(
 
     if (amount && Number(amount) !== order.totalMinor) {
       console.warn(`[AutoLaris Webhook] Amount mismatch for order ${order.id}: expected ${order.totalMinor}, got ${amount}`);
+      return c.json({ error: "Financial payload mismatch" }, 400);
     }
+
     // Verify HMAC Signature against tenant's AutoLaris API Secret
     const [config] = await db
       .select()
       .from(schema.autolarisConfigs)
       .where(eq(schema.autolarisConfigs.tenantId, order.tenantId));
 
-    const secret = config ? config.apiSecret : "default_autolaris_secret";
+    const secret = config?.apiSecret || process.env.AUTOLARIS_SECRET;
+    if (!secret) {
+      return c.json({ error: "Tenant payment secret not configured" }, 500);
+    }
 
-    if (signatureHeader) {
-      const expectedSignature = crypto
-        .createHmac("sha256", secret)
-        .update(rawBodyText)
-        .digest("hex");
-
-      if (signatureHeader.toLowerCase() !== expectedSignature.toLowerCase()) {
-        return c.json({ error: "Invalid HMAC signature" }, 400);
-      }
+    const isValidSignature = verifyAutoLarisSignature(rawBodyText, signatureHeader, secret);
+    if (!isValidSignature) {
+      return c.json({ error: "Invalid HMAC signature" }, 401);
     }
 
     // Reconcile payment status idempotently

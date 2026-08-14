@@ -70,7 +70,7 @@ adminRouter.openapi(
       return c.json({ error: "Forbidden: Missing member:create permission" }, 403);
     }
     const body = await c.req.json();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const [invite] = await db
       .insert(schema.invitations)

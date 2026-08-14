@@ -38,3 +38,24 @@ export const InviteMemberSchema = z.object({
   email: z.string().email(),
   role: RoleEnum.default("ADMIN"),
 });
+
+const passwordSchema = z.string().min(8).max(128);
+
+export const registerMerchantSchema = z.object({
+  storeName: z.string().trim().min(1).max(255),
+  storeSlug: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Store slug must contain lowercase letters, numbers, and single hyphens only"),
+  ownerName: z.string().trim().min(1).max(255),
+  email: z.string().trim().email().max(255),
+  password: passwordSchema,
+});
+
+export const bootstrapSuperAdminSchema = z.object({
+  name: z.string().trim().min(1).max(255),
+  email: z.string().trim().email().max(255),
+  password: passwordSchema,
+});

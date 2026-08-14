@@ -1,8 +1,8 @@
 # DotAds Engine v2 — Status Report
 
-**Last Updated:** 2026-08-14  
-**Project Phase:** Completed & Production-Ready  
-**Overall Completion:** 100% (88/88 Tasks Completed & Verified)
+**Last Updated:** 2026-08-15  
+**Project Phase:** Public Authentication & Gate Hardening Completed — Production Ready  
+**Overall Completion:** 100% (100/100 Tasks Completed & Verified)
 
 ---
 
@@ -24,9 +24,9 @@ All architectural components, contracts, OpenAPI handlers, database schemas, log
 - [x] **Milestone 6: Mengantar Logistics, AutoLaris Payments & Multi-Platform Outbox Engine (`@dotads/integrations`, `apps/api`)**
 - [x] **Milestone 7: Verification, Rate Limiting, Container Specs & Release Smoke (`apps/api`, `docker-compose.coolify.yml`, `scripts/smoke-release.ts`)**
 - [x] **Milestone 8: Canonical Form Engine Presets Specification (`FULL`, `HYBRID`, `MIDDLE`, `MINI`)**
-- [x] **Milestone 9: Super Admin Control Plane, OpenAPI Platform Router & Navigation UX Streamlining (`/super-admin`, `/api/v1/platform/*`)**
-
----
+ - [x] **Milestone 9: Super Admin Control Plane, OpenAPI Platform Router & Navigation UX Streamlining (`/super-admin`, `/api/v1/platform/*`)**
+- [x] **Milestone 10: System-Wide Audit, Mass Refactoring & Security Hardening (HMAC Webhook Verification, Outbox Event Deduplication, Mengantar 3PL Endpoint Fixes & Form Runtime Data Loss Guard)**
+- [x] **Milestone 11: Public Authentication, Self-Service Merchant Onboarding & Super Admin Bootstrap (`/login`, `/register`, `/super-admin/setup`, `/api/v1/public/auth/*`, `better-auth` mount)**
 
 ## Verification & Quality Gates
 

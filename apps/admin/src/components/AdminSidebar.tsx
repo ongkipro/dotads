@@ -231,6 +231,14 @@ export function AdminSidebar({
           </div>
           {!isCollapsed && (
             <button
+              onClick={async () => {
+                try {
+                  await fetch("/api/auth/sign-out", { method: "POST" });
+                } catch {
+                  // Ignore network errors on logout
+                }
+                window.location.href = "/login";
+              }}
               className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors"
               title="Keluar"
             >

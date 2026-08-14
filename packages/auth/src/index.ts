@@ -16,6 +16,19 @@ export const auth = betterAuth({
       invitation: schema.invitations,
     },
   }),
+  emailAndPassword: {
+    enabled: true,
+  },
+  user: {
+    additionalFields: {
+      role: {
+        type: "string",
+        defaultValue: "END_BUYER",
+        required: false,
+        input: false,
+      },
+    },
+  },
   secret: process.env.BETTER_AUTH_SECRET || "dotads-dev-super-secret-key-32-chars-min!",
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:8787",
   plugins: [

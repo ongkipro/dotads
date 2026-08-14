@@ -1,6 +1,8 @@
 ---
 const url = new URL(Astro.request.url);
 const orderNumber = url.searchParams.get("orderNumber") || "ORD_SAMPLE";
+const vaNumber = url.searchParams.get("vaNumber");
+const qrUrl = url.searchParams.get("qrUrl");
 ---
 
 <!DOCTYPE html>
@@ -75,6 +77,21 @@ const orderNumber = url.searchParams.get("orderNumber") || "ORD_SAMPLE";
         Nomor Pesanan: {orderNumber}
       </div>
 
+      {vaNumber && (
+        <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:16px; border-radius:12px; margin:16px 0;">
+          <p style="font-weight:600; color:#1e40af; margin-bottom:4px;">Virtual Account Pembayaran:</p>
+          <p style="font-size:1.5rem; font-weight:800; color:#1d4ed8; letter-spacing:1px; margin:4px 0;">{vaNumber}</p>
+          <p style="font-size:0.85rem; color:#3b82f6;">Silakan lakukan transfer ke nomor Virtual Account di atas.</p>
+        </div>
+      )}
+
+      {qrUrl && (
+        <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:16px; border-radius:12px; margin:16px 0;">
+          <p style="font-weight:600; color:#166534; margin-bottom:8px;">Scan Kode QRIS di bawah ini:</p>
+          <img src={qrUrl} alt="Kode QRIS Pembayaran" style="max-width:200px; border-radius:8px; border:1px solid #cbd5e1;" />
+          <p style="font-size:0.85rem; color:#15803d; margin-top:8px;">Gunakan aplikasi M-Banking atau E-Wallet untuk scan.</p>
+        </div>
+      )}
       <p>Simpan nomor pesanan ini untuk melakukan pelacakan status pengiriman paket Anda.</p>
       
       <a href="/" class="btn">Kembali ke Halaman Utama</a>

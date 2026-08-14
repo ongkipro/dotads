@@ -23,7 +23,7 @@ async function runMemberInvitationsSmoke() {
       email: inviteEmail,
       role: "ADMIN",
       inviterId: user.id,
-      expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      expiresAt: new Date(Date.now() + 86400000),
     })
     .returning();
 

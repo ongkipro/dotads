@@ -22,8 +22,20 @@ export function normalizeAndHashPii(userData: { ph?: string[]; em?: string[]; fn
 }
 
 export async function createOrderWithFanout(orderInput: any, riskScore: number) {
-  const orderNumber = `ORD_${Date.now().toString().slice(-6)}`;
-  const totalMinor = orderInput.subtotalMinor + orderInput.shippingCostMinor - (orderInput.discountMinor || 0);
+  const randomSuffix = createHash("md5").update(`${Math.random()}_${Date.now()}`).digest("hex").slice(0, 4).toUpperCase();
+  const orderNumber = `ORD_${Date.now().toString().slice(-6)}_${randomSuffix}`;
+
+  let calculatedSubtotal = 0;
+  for (const item of orderInput.items || []) {
+    const itemPrice = typeof item.priceMinor === "number" && !isNaN(item.priceMinor) ? item.priceMinor : 299000;
+    const itemQuantity = typeof item.quantity === "number" && !isNaN(item.quantity) ? item.quantity : 1;
+    calculatedSubtotal += itemPrice * itemQuantity;
+  }
+
+  const subtotalMinor = typeof orderInput.subtotalMinor === "number" && !isNaN(orderInput.subtotalMinor) ? orderInput.subtotalMinor : calculatedSubtotal;
+  const shippingCostMinor = typeof orderInput.shippingCostMinor === "number" && !isNaN(orderInput.shippingCostMinor) ? orderInput.shippingCostMinor : 1800000;
+  const discountMinor = typeof orderInput.discountMinor === "number" && !isNaN(orderInput.discountMinor) ? orderInput.discountMinor : 0;
+  const totalMinor = Math.max(0, subtotalMinor + shippingCostMinor - discountMinor);
 
   const [order] = await db
     .insert(schema.orders)
@@ -39,8 +51,9 @@ export async function createOrderWithFanout(orderInput: any, riskScore: number) 
       cityName: orderInput.cityName || "",
       provinceName: orderInput.provinceName || "",
       paymentMethod: orderInput.paymentMethod,
-      subtotalMinor: orderInput.subtotalMinor,
-      shippingCostMinor: orderInput.shippingCostMinor,
+      subtotalMinor,
+      shippingCostMinor,
+      discountMinor,
       totalMinor,
       rtsRiskScore: riskScore,
       courierCode: orderInput.courierCode || "JNE",
@@ -49,8 +62,8 @@ export async function createOrderWithFanout(orderInput: any, riskScore: number) 
     .returning();
 
   for (const item of orderInput.items || []) {
-    const itemPrice = typeof item.priceMinor === "number" ? item.priceMinor : (orderInput.subtotalMinor || 299000);
-    const itemQuantity = typeof item.quantity === "number" ? item.quantity : 1;
+    const itemPrice = typeof item.priceMinor === "number" && !isNaN(item.priceMinor) ? item.priceMinor : 299000;
+    const itemQuantity = typeof item.quantity === "number" && !isNaN(item.quantity) ? item.quantity : 1;
     const itemSubtotal = itemPrice * itemQuantity;
 
     await db.insert(schema.orderItems).values({
@@ -80,24 +93,50 @@ export async function createOrderWithFanout(orderInput: any, riskScore: number) 
   if (attribution.fbp || attribution._fbp) metaUserData.fbp = attribution.fbp || attribution._fbp;
   if (attribution.fbc || attribution._fbc) metaUserData.fbc = attribution.fbc || attribution._fbc;
 
-  const payload = {
+  const metaPayload = {
     event_name: "Purchase",
     event_id: eventId,
     event_time: Math.floor(Date.now() / 1000),
     user_data: metaUserData,
     custom_data: {
       currency: "IDR",
-      value: totalMinor / 100, // Value in IDR major units
+      value: totalMinor / 100,
       order_id: order.id,
       order_number: order.orderNumber,
-      attribution: {
-        gclid: attribution.gclid,
-        wbraid: attribution.wbraid,
-        gbraid: attribution.gbraid,
-        ttclid: attribution.ttclid,
-      },
     },
   };
+
+  const googlePayload = {
+    conversion_action: "customers/default/conversionActions/purchase",
+    conversion_date_time: new Date().toISOString(),
+    conversion_value: totalMinor / 100,
+    currency_code: "IDR",
+    order_id: order.id,
+    user_identifiers: pii,
+    gclid: attribution.gclid,
+    gbraid: attribution.gbraid,
+    wbraid: attribution.wbraid,
+  };
+
+  const tikTokPayload = {
+    event: "CompletePayment",
+    event_id: eventId,
+    timestamp: Math.floor(Date.now() / 1000),
+    context: {
+      user: {
+        phone_number: pii.ph[0],
+        email: pii.em[0],
+        ttclid: attribution.ttclid,
+        user_agent: orderInput.userAgent || "Mozilla/5.0",
+        ip: orderInput.clientIp || "127.0.0.1",
+      },
+    },
+    properties: {
+      currency: "IDR",
+      value: totalMinor / 100,
+    },
+  };
+
   await db.insert(schema.outboxEvents).values([
     {
       tenantId: orderInput.tenantId,
@@ -105,7 +144,7 @@ export async function createOrderWithFanout(orderInput: any, riskScore: number) 
       destinationId: "pixel_default",
       eventId,
       eventName: "Purchase",
-      payloadJson: payload,
+      payloadJson: metaPayload,
     },
     {
       tenantId: orderInput.tenantId,
@@ -113,15 +152,15 @@ export async function createOrderWithFanout(orderInput: any, riskScore: number) 
       destinationId: "g_default",
       eventId,
       eventName: "Purchase",
-      payloadJson: payload,
+      payloadJson: googlePayload,
     },
     {
       tenantId: orderInput.tenantId,
       platform: "tiktok",
       destinationId: "tt_default",
       eventId,
-      eventName: "Purchase",
-      payloadJson: payload,
+      eventName: "CompletePayment",
+      payloadJson: tikTokPayload,
     },
   ]);
 
@@ -135,6 +174,7 @@ export async function createOrderWithFanout(orderInput: any, riskScore: number) 
   return {
     orderId: order.id,
     orderNumber: order.orderNumber,
+    totalMinor,
   };
 }
 

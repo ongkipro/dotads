@@ -1,7 +1,7 @@
 export class DotAdsFormElement extends HTMLElement {
   private shadow: ShadowRoot;
   private isSubmitting: boolean = false;
-
+  private formData: Record<string, string> = {};
   constructor() {
     super();
     this.shadow = this.attachShadow({ mode: "open" });
@@ -37,7 +37,28 @@ export class DotAdsFormElement extends HTMLElement {
 
   private currentStep: number = 1;
 
+  private saveInputState() {
+    const inputs = this.shadow.querySelectorAll("input, select, textarea");
+    inputs.forEach((input) => {
+      const el = input as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+      if (el.name && el.value) {
+        this.formData[el.name] = el.value;
+      }
+    });
+  }
+
+  private restoreInputState() {
+    const inputs = this.shadow.querySelectorAll("input, select, textarea");
+    inputs.forEach((input) => {
+      const el = input as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+      if (el.name && this.formData[el.name] !== undefined) {
+        el.value = this.formData[el.name];
+      }
+    });
+  }
+
   private render() {
+    this.saveInputState();
     const currentMode = this.mode;
 
     let contentHtml = "";
@@ -322,6 +343,7 @@ export class DotAdsFormElement extends HTMLElement {
     const nextBtn = this.shadow.querySelector("#next-step-btn") as HTMLButtonElement;
     if (nextBtn) {
       nextBtn.addEventListener("click", () => {
+        this.saveInputState();
         this.handleDraftLead();
         this.currentStep = 2;
         this.render();
@@ -331,10 +353,19 @@ export class DotAdsFormElement extends HTMLElement {
     const prevBtn = this.shadow.querySelector("#prev-step-btn") as HTMLButtonElement;
     if (prevBtn) {
       prevBtn.addEventListener("click", () => {
+        this.saveInputState();
         this.currentStep = 1;
         this.render();
       });
     }
+
+    this.restoreInputState();
+
+    const inputs = this.shadow.querySelectorAll("input, select, textarea");
+    inputs.forEach((input) => {
+      input.addEventListener("input", () => this.saveInputState());
+      input.addEventListener("change", () => this.saveInputState());
+    });
 
     const phoneInput = this.shadow.querySelector("#customerPhone") as HTMLInputElement;
     if (phoneInput) {
@@ -380,8 +411,9 @@ export class DotAdsFormElement extends HTMLElement {
     }
 
     try {
-      const customerName = (this.shadow.querySelector("#customerName") as HTMLInputElement)?.value || "";
-      const customerPhone = (this.shadow.querySelector("#customerPhone") as HTMLInputElement)?.value || "";
+      this.saveInputState();
+      const customerName = this.formData["customerName"] || (this.shadow.querySelector("#customerName") as HTMLInputElement)?.value || "";
+      const customerPhone = this.formData["customerPhone"] || (this.shadow.querySelector("#customerPhone") as HTMLInputElement)?.value || "";
 
       if (this.mode === "mini") {
         await this.handleDraftLead();
@@ -390,10 +422,10 @@ export class DotAdsFormElement extends HTMLElement {
         return;
       }
 
-      const shippingAddress = (this.shadow.querySelector("#shippingAddress") as HTMLTextAreaElement)?.value || "Alamat belum diisi";
-      const subdistrictId = (this.shadow.querySelector("#subdistrictId") as HTMLSelectElement)?.value || "ID_SUB_1001";
-      const courierCode = (this.shadow.querySelector("#courierCode") as HTMLSelectElement)?.value || "JNE";
-      const paymentMethod = (this.shadow.querySelector("#paymentMethod") as HTMLSelectElement)?.value || "COD";
+      const shippingAddress = this.formData["shippingAddress"] || (this.shadow.querySelector("#shippingAddress") as HTMLTextAreaElement)?.value || "Alamat belum diisi";
+      const subdistrictId = this.formData["subdistrictId"] || (this.shadow.querySelector("#subdistrictId") as HTMLSelectElement)?.value || "ID_SUB_1001";
+      const courierCode = this.formData["courierCode"] || (this.shadow.querySelector("#courierCode") as HTMLSelectElement)?.value || "JNE";
+      const paymentMethod = this.formData["paymentMethod"] || (this.shadow.querySelector("#paymentMethod") as HTMLSelectElement)?.value || "COD";
 
       const payload = {
         tenantId: this.tenantId || "2f2ca823-46bf-4ab5-a5fe-61a49d175fa8",
@@ -427,17 +459,25 @@ export class DotAdsFormElement extends HTMLElement {
       }
 
       const orderData = await res.json();
+      const realOrderId = orderData.orderId || orderData.id;
 
-      // Trigger Meta Pixel Track
+      // Trigger Meta Pixel Track with exact eventID deduplication
       if (typeof window !== "undefined" && (window as any).fbq) {
         (window as any).fbq("track", "Purchase", {
           currency: "IDR",
           value: orderData.totalMinor / 100,
-        });
+        }, { eventID: `purchase_${realOrderId}` });
       }
 
-      // Redirect to thank-you page
-      window.location.href = `/thank-you?orderNumber=${orderData.orderNumber}&id=${orderData.id}`;
+      // Redirect to thank-you page with payment details
+      const params = new URLSearchParams({
+        orderNumber: orderData.orderNumber || "",
+        id: realOrderId || "",
+      });
+      if (orderData.vaNumber) params.set("vaNumber", orderData.vaNumber);
+      if (orderData.qrUrl) params.set("qrUrl", orderData.qrUrl);
+
+      window.location.href = `/thank-you?${params.toString()}`;
     } catch (err: any) {
       if (errorSummary) {
         errorSummary.innerText = err.message || "Terjadi kesalahan. Silakan coba lagi.";

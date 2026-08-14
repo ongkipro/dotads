@@ -1,11 +1,17 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { randomBytes, randomUUID } from "node:crypto";
+import { auth } from "@dotads/auth";
 import { db, schema } from "@dotads/db";
-import { eq } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 import {
+  bootstrapSuperAdminSchema,
   CreateOrderPublicSchema,
   DraftLeadSchema,
+  registerMerchantSchema,
+  RoleEnum,
   ShippingRateRequestSchema,
 } from "@dotads/contracts";
+import { setSignedCookie } from "hono/cookie";
 import {
   fetchMengantarShippingRates,
   createAutoLarisPaymentSession,
@@ -14,6 +20,320 @@ import {
 } from "@dotads/integrations";
 
 export const publicRouter = new OpenAPIHono();
+
+const publicAuthUserSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().email(),
+  emailVerified: z.boolean(),
+  image: z.string().nullable(),
+  role: RoleEnum,
+});
+
+const authErrorSchema = z.object({ error: z.string() });
+
+// Public Merchant Self-Service Registration
+publicRouter.openapi(
+  createRoute({
+    method: "post",
+    path: "/auth/register-merchant",
+    summary: "Register a merchant tenant and owner account",
+    request: {
+      body: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: registerMerchantSchema,
+          },
+        },
+      },
+    },
+    responses: {
+      201: {
+        description: "Merchant tenant and authenticated owner account",
+        content: {
+          "application/json": {
+            schema: z.object({
+              tenant: z.object({
+                id: z.string().uuid(),
+                name: z.string(),
+                slug: z.string(),
+                status: z.string(),
+                tier: z.string(),
+              }),
+              organization: z.object({
+                id: z.string(),
+                tenantId: z.string().uuid(),
+                name: z.string(),
+                slug: z.string(),
+              }),
+              token: z.string(),
+              user: publicAuthUserSchema,
+            }),
+          },
+        },
+      },
+      409: {
+        description: "Email or store slug already exists",
+        content: {
+          "application/json": {
+            schema: authErrorSchema,
+          },
+        },
+      },
+    },
+  }),
+  async (c) => {
+    const input = c.req.valid("json");
+    const email = input.email.toLowerCase();
+    const authContext = await auth.$context;
+    const passwordHash = await authContext.password.hash(input.password);
+
+    try {
+      const provisioned = await db.transaction(async (tx) => {
+        const [tenant] = await tx
+          .insert(schema.tenants)
+          .values({
+            name: input.storeName,
+            slug: input.storeSlug,
+            status: "active",
+            tier: "pro",
+          })
+          .returning();
+
+        const userId = randomUUID();
+        const [user] = await tx
+          .insert(schema.users)
+          .values({
+            id: userId,
+            name: input.ownerName,
+            email,
+            emailVerified: false,
+            role: "TENANT_OWNER",
+          })
+          .returning();
+
+        await tx.insert(schema.accounts).values({
+          id: randomUUID(),
+          accountId: userId,
+          providerId: "credential",
+          userId,
+          password: passwordHash,
+        });
+
+        const [organization] = await tx
+          .insert(schema.organizations)
+          .values({
+            id: randomUUID(),
+            tenantId: tenant.id,
+            name: input.storeName,
+            slug: input.storeSlug,
+          })
+          .returning();
+
+        await tx.insert(schema.members).values({
+          id: randomUUID(),
+          organizationId: organization.id,
+          userId,
+          role: "TENANT_OWNER",
+        });
+
+        const sessionToken = randomBytes(32).toString("base64url");
+        await tx.insert(schema.sessions).values({
+          id: randomUUID(),
+          token: sessionToken,
+          userId,
+          expiresAt: new Date(Date.now() + authContext.sessionConfig.expiresIn * 1000),
+          userAgent: c.req.header("user-agent"),
+          activeOrganizationId: organization.id,
+        });
+
+        return { tenant, user, organization, sessionToken };
+      });
+
+      await setSignedCookie(
+        c,
+        authContext.authCookies.sessionToken.name,
+        provisioned.sessionToken,
+        authContext.secret,
+        {
+          ...authContext.authCookies.sessionToken.attributes,
+          maxAge: authContext.sessionConfig.expiresIn,
+        }
+      );
+
+      return c.json(
+        {
+          tenant: {
+            id: provisioned.tenant.id,
+            name: provisioned.tenant.name,
+            slug: provisioned.tenant.slug,
+            status: provisioned.tenant.status,
+            tier: provisioned.tenant.tier,
+          },
+          organization: {
+            id: provisioned.organization.id,
+            tenantId: provisioned.organization.tenantId,
+            name: provisioned.organization.name,
+            slug: provisioned.organization.slug,
+          },
+          token: provisioned.sessionToken,
+          user: {
+            id: provisioned.user.id,
+            name: provisioned.user.name,
+            email: provisioned.user.email,
+            emailVerified: provisioned.user.emailVerified,
+            image: provisioned.user.image,
+            role: "TENANT_OWNER" as const,
+          },
+        },
+        201
+      );
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") {
+        return c.json({ error: "Email or store slug already exists" }, 409);
+      }
+      throw error;
+    }
+  }
+);
+
+// First-Time Super Admin Bootstrap
+publicRouter.openapi(
+  createRoute({
+    method: "post",
+    path: "/auth/bootstrap-superadmin",
+    summary: "Bootstrap the first Super Admin account",
+    request: {
+      body: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: bootstrapSuperAdminSchema,
+          },
+        },
+      },
+    },
+    responses: {
+      201: {
+        description: "Initial Super Admin account created",
+        content: {
+          "application/json": {
+            schema: z.object({
+              message: z.string(),
+              token: z.string(),
+              user: publicAuthUserSchema,
+            }),
+          },
+        },
+      },
+      403: {
+        description: "Super Admin has already been bootstrapped",
+        content: {
+          "application/json": {
+            schema: authErrorSchema,
+          },
+        },
+      },
+      409: {
+        description: "Email already exists",
+        content: {
+          "application/json": {
+            schema: authErrorSchema,
+          },
+        },
+      },
+    },
+  }),
+  async (c) => {
+    const input = c.req.valid("json");
+    const email = input.email.toLowerCase();
+    const authContext = await auth.$context;
+    const passwordHash = await authContext.password.hash(input.password);
+
+    try {
+      const bootstrapped = await db.transaction(async (tx) => {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext('dotads.bootstrap-super-admin'))`);
+
+        const [{ value: superAdminCount }] = await tx
+          .select({ value: count() })
+          .from(schema.users)
+          .where(eq(schema.users.role, "SUPER_ADMIN"));
+
+        if (superAdminCount > 0) {
+          return null;
+        }
+
+        const userId = randomUUID();
+        const [createdUser] = await tx
+          .insert(schema.users)
+          .values({
+            id: userId,
+            name: input.name,
+            email,
+            emailVerified: false,
+            role: "SUPER_ADMIN",
+          })
+          .returning();
+
+        await tx.insert(schema.accounts).values({
+          id: randomUUID(),
+          accountId: userId,
+          providerId: "credential",
+          userId,
+          password: passwordHash,
+        });
+
+        const sessionToken = randomBytes(32).toString("base64url");
+        await tx.insert(schema.sessions).values({
+          id: randomUUID(),
+          token: sessionToken,
+          userId,
+          expiresAt: new Date(Date.now() + authContext.sessionConfig.expiresIn * 1000),
+          userAgent: c.req.header("user-agent"),
+        });
+
+        return { user: createdUser, sessionToken };
+      });
+
+      if (!bootstrapped) {
+        return c.json({ error: "Super Admin already bootstrapped" }, 403);
+      }
+
+      await setSignedCookie(
+        c,
+        authContext.authCookies.sessionToken.name,
+        bootstrapped.sessionToken,
+        authContext.secret,
+        {
+          ...authContext.authCookies.sessionToken.attributes,
+          maxAge: authContext.sessionConfig.expiresIn,
+        }
+      );
+
+      return c.json(
+        {
+          message: "Super Admin bootstrapped",
+          token: bootstrapped.sessionToken,
+          user: {
+            id: bootstrapped.user.id,
+            name: bootstrapped.user.name,
+            email: bootstrapped.user.email,
+            emailVerified: bootstrapped.user.emailVerified,
+            image: bootstrapped.user.image,
+            role: "SUPER_ADMIN" as const,
+          },
+        },
+        201
+      );
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") {
+        return c.json({ error: "Email already exists" }, 409);
+      }
+      throw error;
+    }
+  }
+);
 
 // Public Storefront Non-Secret Bootstrap API
 publicRouter.openapi(
@@ -515,16 +835,16 @@ publicRouter.openapi(
       return c.json({ error: "Verifikasi Turnstile bot gagal. Gagal memproses pesanan." }, 403);
     }
 
-    // 1. Evaluate receiver risk score
+    // 1. Create order & stage multi-platform ad conversion events (Meta, Google, TikTok)
+    const result = await createOrderWithFanout(body, 15);
+
+    // 2. Evaluate receiver risk score with calculated order total
     const riskResult = evaluateReceiverRisk({
       customerPhone: body.customerPhone,
       shippingAddress: body.shippingAddress,
       subdistrictId: body.subdistrictId,
-      orderTotalMinor: 270000,
+      orderTotalMinor: result.totalMinor,
     });
-
-    // 2. Create order & stage multi-platform ad conversion events (Meta, Google, TikTok)
-    const result = await createOrderWithFanout(body, riskResult.score);
 
     // 3. If prepaid method, generate AutoLaris payment transaction
     let paymentInfo: { paymentUrl?: string; vaNumber?: string; qrUrl?: string } = {};
@@ -532,7 +852,7 @@ publicRouter.openapi(
       const paymentTx = await createAutoLarisPaymentSession({
         tenantId: body.tenantId,
         orderId: result.orderId,
-        amountMinor: 270000,
+        amountMinor: result.totalMinor,
         paymentMethod: body.paymentMethod as any,
       });
 
@@ -551,7 +871,8 @@ publicRouter.openapi(
         orderNumber: result.orderNumber,
         status: "PENDING",
         paymentMethod: body.paymentMethod,
-        totalMinor: 270000,
+        totalMinor: result.totalMinor,
+        riskScore: riskResult.score,
         ...paymentInfo,
       },
       201

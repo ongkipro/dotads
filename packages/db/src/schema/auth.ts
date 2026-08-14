@@ -7,18 +7,19 @@ export const users = pgTable("users", {
   email: varchar("email", { length: 255 }).notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
-  createdAt: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { mode: "string" }).notNull().defaultNow(),
+  role: varchar("role", { length: 50 }).notNull().default("END_BUYER"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export const sessions = pgTable(
   "sessions",
   {
     id: text("id").primaryKey(),
-    expiresAt: timestamp("expires_at", { mode: "string" }).notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
     token: text("token").notNull().unique(),
-    createdAt: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { mode: "string" }).notNull().defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -37,12 +38,12 @@ export const accounts = pgTable(
     accessToken: text("access_token"),
     refreshToken: text("refresh_token"),
     idToken: text("id_token"),
-    accessTokenExpiresAt: timestamp("access_token_expires_at", { mode: "string" }),
-    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { mode: "string" }),
+    accessTokenExpiresAt: timestamp("access_token_expires_at"),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
     scope: text("scope"),
     password: text("password"),
-    createdAt: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { mode: "string" }).notNull().defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [index("idx_accounts_user").on(table.userId)]
 );
@@ -51,9 +52,9 @@ export const verifications = pgTable("verifications", {
   id: text("id").primaryKey(),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
-  expiresAt: timestamp("expires_at", { mode: "string" }).notNull(),
-  createdAt: timestamp("created_at", { mode: "string" }).defaultNow(),
-  updatedAt: timestamp("updated_at", { mode: "string" }).defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const organizations = pgTable(
@@ -64,7 +65,7 @@ export const organizations = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 255 }).notNull().unique(),
     logo: text("logo"),
-    createdAt: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
     metadata: jsonb("metadata"),
   },
   (table) => [index("idx_organizations_tenant").on(table.tenantId)]
@@ -77,7 +78,7 @@ export const members = pgTable(
     organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     role: varchar("role", { length: 50 }).notNull().default("ADMIN"), // SUPER_ADMIN, TENANT_OWNER, ADMIN, ADVERTISER, CUSTOMER_SERVICE, END_BUYER
-    createdAt: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
     index("idx_members_org").on(table.organizationId),
@@ -94,9 +95,9 @@ export const invitations = pgTable(
     email: varchar("email", { length: 255 }).notNull(),
     role: varchar("role", { length: 50 }).notNull().default("ADMIN"),
     status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, accepted, rejected, canceled
-    expiresAt: timestamp("expires_at", { mode: "string" }).notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
     inviterId: text("inviter_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [index("idx_invitations_org").on(table.organizationId)]
 );

@@ -1,5 +1,7 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
+import { cors } from "hono/cors";
 import { apiReference } from "@scalar/hono-api-reference";
+import { auth } from "@dotads/auth";
 import { platformRouter } from "./routes/platform.ts";
 import { adminRouter } from "./routes/admin.ts";
 import { publicRouter } from "./routes/public.ts";
@@ -9,20 +11,24 @@ import type { AppEnv } from "./middleware/auth.ts";
 
 export const app = new OpenAPIHono<AppEnv>();
 
-// Global Rate Limit Middleware & CORS
+// Global Rate Limit Middleware & Standard CORS
 app.use("*", rateLimitMiddleware);
-app.use("*", async (c, next) => {
-  c.header("Access-Control-Allow-Origin", "*");
-  c.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-session-token, x-tenant-id");
-  if (c.req.method === "OPTIONS") {
-    return c.body(null, 204);
-  }
-  await next();
+app.use("*", cors({
+  origin: "*",
+  allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowHeaders: ["Content-Type", "Authorization", "x-session-token", "x-tenant-id"],
+}));
+
+// Global Error Handler
+app.onError((err, c) => {
+  console.error("Unhandled API Error:", err);
+  return c.json({ error: "Internal Server Error", message: err.message }, 500);
 });
 
 // Health check endpoint
 app.get("/health", (c) => c.json({ status: "healthy", timestamp: new Date().toISOString() }));
+
+app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
 // Mount OpenApi Sub-Routers
 app.route("/api/v1/platform", platformRouter);

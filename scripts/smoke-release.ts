@@ -56,12 +56,26 @@ async function runReleaseSmoke() {
   assert.ok(order, "Order record must be created successfully");
   console.log(`  ✓ Created Order: ${order.orderNumber} (ID: ${order.id})`);
 
-  const [seededProduct] = await db
+  let [seededProduct] = await db
     .select()
     .from(schema.products)
     .where(eq(schema.products.tenantId, tenant.id))
     .limit(1);
-  assert.ok(seededProduct, "Database must contain at least one seeded product for weight lookup");
+
+  if (!seededProduct) {
+    [seededProduct] = await db
+      .insert(schema.products)
+      .values({
+        tenantId: tenant.id,
+        name: "Test Gadget Alpha",
+        slug: `test-gadget-${Date.now()}`,
+        priceMinor: 150000,
+        weightGrams: 500,
+        status: "ACTIVE",
+      })
+      .returning();
+  }
+  assert.ok(seededProduct, "Database must contain at least one product for weight lookup");
   await db.insert(schema.orderItems).values({
     tenantId: tenant.id,
     orderId: order.id,

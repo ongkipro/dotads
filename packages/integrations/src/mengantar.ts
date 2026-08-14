@@ -107,7 +107,7 @@ export async function fetchMengantarShippingRates(
   const targetCourier = req.courierCode || "JNE";
 
   try {
-    const response = await fetch(mengantarUrl(apiKey, `order/allEstimate3Pld`), {
+    const response = await fetch(mengantarUrl(apiKey, `order/allEstimate3PL`), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -242,7 +242,7 @@ export async function processMengantarDispatchQueue() {
           postal_code: order.postalCode,
           courier_code: order.courierCode,
           courier_service: order.courierService,
-          cod_value: order.paymentMethod === "COD" ? order.totalMinor : 0,
+          cod_value: order.paymentMethod === "COD" ? Math.round(order.totalMinor / 100) : 0,
           weight,
           origin_area_id: MENGANTAR_ORIGIN_AREA_ID,
           pickup_address_id: MENGANTAR_PICKUP_ADDRESS_ID,
@@ -250,20 +250,23 @@ export async function processMengantarDispatchQueue() {
       });
 
       let cnoteNo = "";
-      try {
+      if (process.env.NODE_ENV === "test" || process.env.MENGANTAR_MOCK === "true") {
+        cnoteNo = `MNTR_TEST_${Date.now().toString().slice(-8)}`;
+      } else {
+        if (!response.ok) {
+          throw new Error(`Mengantar dispatch failed: HTTP ${response.status}`);
+        }
+
         const payload = await readMengantarResponse(response);
         const dispatchedOrder = providerArray(payload)[0] ?? asProviderObject(asProviderObject(payload)?.data);
         cnoteNo = dispatchedOrder
           ? providerString(dispatchedOrder, "cnote_no", "cnoteNo", "waybill_number")
           : "";
-      } catch (_e) {
-        // Fallback to generated waybill if provider call fails in sandbox/offline mode
-      }
 
-      if (!cnoteNo) {
-        cnoteNo = `MNTR_${Date.now().toString().slice(-8)}`;
+        if (!cnoteNo) {
+          throw new Error("Mengantar API did not return a valid cnote_no waybill number");
+        }
       }
-
       await db
         .update(schema.orders)
         .set({
