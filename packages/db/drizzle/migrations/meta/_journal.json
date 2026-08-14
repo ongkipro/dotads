@@ -8,6 +8,13 @@
       "when": 1786650755993,
       "tag": "0000_fixed_mordo",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786728143540,
+      "tag": "0001_parched_star_brand",
+      "breakpoints": true
     }
   ]
 }
