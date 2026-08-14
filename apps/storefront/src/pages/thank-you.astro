@@ -1,0 +1,94 @@
+---
+const url = new URL(Astro.request.url);
+const orderNumber = url.searchParams.get("orderNumber") || "ORD_SAMPLE";
+---
+
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Terima Kasih - Pesanan Diterima</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px;
+      }
+      .card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 40px;
+        max-width: 500px;
+        width: 100%;
+        text-align: center;
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
+      }
+      .icon {
+        font-size: 3.5rem;
+        margin-bottom: 16px;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin-bottom: 8px;
+        color: #0f172a;
+      }
+      .order-box {
+        background: #f1f5f9;
+        border-radius: 8px;
+        padding: 12px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: #2563eb;
+        margin: 20px 0;
+      }
+      p {
+        color: #64748b;
+        font-size: 0.95rem;
+      }
+      .btn {
+        display: inline-block;
+        margin-top: 24px;
+        background: #0f172a;
+        color: #ffffff;
+        text-decoration: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="icon">🎉</div>
+      <h1>Terima Kasih! Pesanan Anda Diterima</h1>
+      <p>Tim kami akan segera memproses dan mengonfirmasi pesanan Anda melalui WhatsApp.</p>
+      
+      <div class="order-box" id="order-number-display">
+        Nomor Pesanan: {orderNumber}
+      </div>
+
+      <p>Simpan nomor pesanan ini untuk melakukan pelacakan status pengiriman paket Anda.</p>
+      
+      <a href="/" class="btn">Kembali ke Halaman Utama</a>
+    </div>
+
+    <script is:inline>
+      document.addEventListener("DOMContentLoaded", () => {
+        const params = new URLSearchParams(window.location.search);
+        const orderNo = params.get("orderNumber");
+        if (orderNo) {
+          const el = document.getElementById("order-number-display");
+          if (el) el.innerText = "Nomor Pesanan: " + orderNo;
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "extends": "@dotads/config/tsconfig",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*", "scripts/**/*", "drizzle.config.ts"]
+}

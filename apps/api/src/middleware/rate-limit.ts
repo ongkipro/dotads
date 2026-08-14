@@ -1,0 +1,28 @@
+import type { Context, Next } from "hono";
+
+const requestCounts = new Map<string, { count: number; resetAt: number }>();
+
+export async function rateLimitMiddleware(c: Context, next: Next) {
+  const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "127.0.0.1";
+  const now = Date.now();
+  const windowMs = 60 * 1000; // 1 minute
+  const maxRequests = 120; // 120 requests per minute per IP
+
+  let record = requestCounts.get(ip);
+  if (!record || now > record.resetAt) {
+    record = { count: 1, resetAt: now + windowMs };
+    requestCounts.set(ip, record);
+  } else {
+    record.count++;
+  }
+
+  c.header("X-RateLimit-Limit", maxRequests.toString());
+  c.header("X-RateLimit-Remaining", Math.max(0, maxRequests - record.count).toString());
+  c.header("X-RateLimit-Reset", Math.ceil(record.resetAt / 1000).toString());
+
+  if (record.count > maxRequests) {
+    return c.json({ error: "Too Many Requests", retryAfter: Math.ceil((record.resetAt - now) / 1000) }, 429);
+  }
+
+  await next();
+}

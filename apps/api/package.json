@@ -1,0 +1,31 @@
+{
+  "name": "@dotads/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "node --experimental-strip-types --watch src/index.ts",
+    "start": "node --experimental-strip-types src/index.ts",
+    "build": "tsc",
+    "smoke:rbac": "node --experimental-strip-types scripts/smoke-rbac.ts",
+    "smoke:member-invitations": "node --experimental-strip-types scripts/smoke-member-invitations.ts",
+    "smoke:domain-routing": "node --experimental-strip-types scripts/smoke-domain-routing.ts",
+    "smoke:audit-log": "node --experimental-strip-types scripts/smoke-audit-log.ts"
+  },
+  "dependencies": {
+    "@dotads/auth": "workspace:*",
+    "@dotads/contracts": "workspace:*",
+    "@dotads/db": "workspace:*",
+    "@hono/node-server": "^1.13.8",
+    "@hono/zod-openapi": "^0.18.4",
+    "@scalar/hono-api-reference": "^0.5.171",
+    "drizzle-orm": "^0.38.4",
+    "hono": "^4.7.2",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "typescript": "^5.7.3"
+  }
+}

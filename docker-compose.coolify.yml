@@ -1,0 +1,66 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dotads_production_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: dotads_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dotads_password_prod}
+      POSTGRES_DB: dotads_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dotads_user -d dotads_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: dotads_api
+    restart: always
+    environment:
+      PORT: 8787
+      DATABASE_URL: postgres://dotads_user:${POSTGRES_PASSWORD:-dotads_password_prod}@postgres:5432/dotads_db
+    ports:
+      - "8787:8787"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin
+    container_name: dotads_admin
+    restart: always
+    environment:
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: http://api:8787
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+  storefront:
+    build:
+      context: .
+      dockerfile: Dockerfile.storefront
+    container_name: dotads_storefront
+    restart: always
+    environment:
+      PORT: 4321
+      PUBLIC_API_URL: http://api:8787
+    ports:
+      - "4321:4321"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
