@@ -6,9 +6,16 @@ export function sha256(value: string): string {
   return createHash("sha256").update(value.trim().toLowerCase()).digest("hex");
 }
 
+export function normalizeIndonesianPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("62")) return digits;
+  if (digits.startsWith("0")) return `62${digits.slice(1)}`;
+  return `62${digits}`;
+}
+
 export function normalizeAndHashPii(userData: { ph?: string[]; em?: string[]; fn?: string[] }) {
   return {
-    ph: userData.ph?.map((p) => sha256(p.replace(/\D/g, ""))) || [],
+    ph: userData.ph?.map((p) => sha256(normalizeIndonesianPhone(p))) || [],
     em: userData.em?.map((e) => sha256(e)) || [],
     fn: userData.fn?.map((f) => sha256(f)) || [],
   };
@@ -64,18 +71,33 @@ export async function createOrderWithFanout(orderInput: any, riskScore: number) 
     fn: [orderInput.customerName],
   });
 
+  const attribution = orderInput.attribution || {};
+  const metaUserData: Record<string, any> = {
+    ...pii,
+    client_ip_address: orderInput.clientIp || "127.0.0.1",
+    client_user_agent: orderInput.userAgent || "Mozilla/5.0",
+  };
+  if (attribution.fbp || attribution._fbp) metaUserData.fbp = attribution.fbp || attribution._fbp;
+  if (attribution.fbc || attribution._fbc) metaUserData.fbc = attribution.fbc || attribution._fbc;
+
   const payload = {
     event_name: "Purchase",
     event_id: eventId,
     event_time: Math.floor(Date.now() / 1000),
-    user_data: pii,
+    user_data: metaUserData,
     custom_data: {
       currency: "IDR",
-      value: totalMinor,
+      value: totalMinor / 100, // Value in IDR major units
       order_id: order.id,
+      order_number: order.orderNumber,
+      attribution: {
+        gclid: attribution.gclid,
+        wbraid: attribution.wbraid,
+        gbraid: attribution.gbraid,
+        ttclid: attribution.ttclid,
+      },
     },
   };
-
   await db.insert(schema.outboxEvents).values([
     {
       tenantId: orderInput.tenantId,
