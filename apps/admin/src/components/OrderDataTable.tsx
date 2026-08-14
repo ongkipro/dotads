@@ -224,6 +224,10 @@ export function OrderDataTable() {
       const matchesSearch =
         !query ||
         order.orderNumber.toLowerCase().includes(query) ||
+        order.customerName.toLowerCase().includes(query) ||
+        (order.cnoteNo && order.cnoteNo.toLowerCase().includes(query)) ||
+        (order.courierCode && order.courierCode.toLowerCase().includes(query)) ||
+        order.paymentMethod.toLowerCase().includes(query) ||
         (phoneQuery.length > 0 && order.customerPhone.replace(/\D/g, "").includes(phoneQuery));
       const matchesStatus = selectedStatus === "ALL" || order.lifecycleStatus === selectedStatus;
       return matchesSearch && matchesStatus;

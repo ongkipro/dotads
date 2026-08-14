@@ -133,6 +133,7 @@ const generateGtin13 = () => {
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<ProductItem[]>(INITIAL_PRODUCTS);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<ProductItem | null>(null);
@@ -151,16 +152,17 @@ export default function AdminProductsPage() {
 
   const filteredProducts = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    if (!query) return products;
 
-    return products.filter(
-      (product) =>
+    return products.filter((product) => {
+      const matchesSearch =
+        !query ||
         product.name.toLowerCase().includes(query) ||
         product.sku.toLowerCase().includes(query) ||
-        product.gtin.includes(query),
-    );
-  }, [products, searchTerm]);
-
+        product.gtin.includes(query);
+      const matchesStatus = statusFilter === "all" || product.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [products, searchTerm, statusFilter]);
   const showToast = (message: string) => {
     window.clearTimeout(toastTimerRef.current);
     setToastMessage(message);
@@ -285,18 +287,30 @@ export default function AdminProductsPage() {
       </div>
 
       <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="search"
-            aria-label="Cari produk"
-            placeholder="Cari nama produk, SKU, atau GTIN..."
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-          />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative max-w-md flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              aria-label="Cari produk"
+              placeholder="Cari nama produk, SKU, atau GTIN..."
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            />
+          </div>
+          <select
+            aria-label="Filter status produk"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+          >
+            <option value="all">Semua Status</option>
+            <option value="active">Aktif</option>
+            <option value="draft">Draf</option>
+            <option value="archived">Diarsipkan</option>
+          </select>
         </div>
-
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs">
             <thead>
