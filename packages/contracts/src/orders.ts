@@ -37,6 +37,7 @@ export const CreateOrderPublicSchema = z.object({
       quantity: z.number().int().positive().default(1),
     })
   ).min(1),
+  turnstileToken: z.string().optional(),
   attribution: MultiAdAttributionSchema.optional(),
 });
 

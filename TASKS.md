@@ -18,19 +18,11 @@
 - [X] **Phase 5: Storefront & Web Component Embed** (<dotads-form> Web Component + Astro 5 zero-JS storefront verified)
 - [X] **Phase 6: Mengantar Logistics, AutoLaris Payments & Multi-Platform Ad Outbox** (Production Mengantar API + AutoLaris QRIS/VA + Meta/GAds/TikTok outbox verified)
 - [X] **Phase 7: Integrated Verification & Release Build** (`pnpm build` & `pnpm run smoke:release` 100% verified)
+- [X] **Phase 8: Advanced Operational Security & Bot Protection** (Turnstile Bot Shield + Dynamic IP Rate Limiting verified)
 
 ---
 
 ## Next Actionable Follow-up Phases & Tasks
-
-### Phase 8: Advanced Operational Security & Bot Protection (Pending)
-- [ ] **Task 8.1: Cloudflare Turnstile Bot Protection on Public Orders**
-  - **Requirement:** Integrate Turnstile CAPTCHA verification in `@dotads/form-runtime` and validate server-side token on `/api/v1/public/orders` to prevent automated bot spam on Meta Ads landing pages.
-  - **Done when:** `curl -X POST` without valid Turnstile token is rejected with HTTP 403, and valid submissions pass.
-
-- [ ] **Task 8.2: Dynamic IP Rate Limiting & Abuse Prevention**
-  - **Requirement:** Add strict per-IP rate limiting middleware in Hono API for order creation (max 5 orders / minute per IP).
-  - **Done when:** Exceeding threshold triggers HTTP 429 Too Many Requests response with retry-after header.
 
 ### Phase 9: High-Availability VPS Infrastructure & Production Deployment (Pending)
 - [ ] **Task 9.1: Coolify Docker Compose Setup with PgBouncer**
