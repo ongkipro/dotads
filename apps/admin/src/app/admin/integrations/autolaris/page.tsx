@@ -10,44 +10,61 @@ export default function AdminAutoLarisPage() {
   const [vaMandiriEnabled, setVaMandiriEnabled] = useState(true);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">AutoLaris Payment Gateway</h1>
-        <p className="text-xs text-slate-500">Configure instant QRIS, Virtual Accounts (BCA, Mandiri, BNI, BRI), and server-authoritative payment reconciliation</p>
-      </div>
+    <div className="space-y-6 pb-8">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">
+            <CreditCard className="h-4 w-4" /> Payment Gateway
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">AutoLaris Pay</h1>
+          <p className="mt-1 text-sm text-slate-500">Configure instant QRIS, Virtual Accounts, and server-authoritative payment reconciliation.</p>
+        </div>
+      </header>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-emerald-600 mb-2">
-            <span className="text-xs font-bold uppercase text-slate-500">Reconciliation Rate</span>
-            <CheckCircle2 className="w-4 h-4" />
+      <section className="grid gap-4 sm:grid-cols-3">
+        <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Reconciliation Rate</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-900">100%</p>
+              <p className="mt-1 text-xs text-slate-500">HMAC SHA256 Webhook active</p>
+            </div>
+            <span className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
+              <CheckCircle2 className="h-5 w-5" />
+            </span>
           </div>
-          <p className="text-2xl font-bold text-slate-900">100% Reconciled</p>
-          <p className="text-[11px] text-emerald-600 font-semibold mt-1">Automatic HMAC SHA256 Webhook verification</p>
-        </div>
+        </article>
 
-        <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-indigo-600 mb-2">
-            <span className="text-xs font-bold uppercase text-slate-500">Active Gateways</span>
-            <CreditCard className="w-4 h-4" />
+        <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Active Gateways</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-indigo-700">QRIS & 4 VAs</p>
+              <p className="mt-1 text-xs text-slate-500">BCA, Mandiri, BRI, BSI</p>
+            </div>
+            <span className="rounded-lg bg-indigo-50 p-2 text-indigo-600">
+              <CreditCard className="h-5 w-5" />
+            </span>
           </div>
-          <p className="text-2xl font-bold text-indigo-700">QRIS & 4 VAs</p>
-          <p className="text-[11px] text-slate-400 mt-1">BCA, Mandiri, BRI, BSI</p>
-        </div>
+        </article>
 
-        <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-purple-600 mb-2">
-            <span className="text-xs font-bold uppercase text-slate-500">Auto Settled GMV</span>
-            <QrCode className="w-4 h-4" />
+        <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Auto Settled GMV</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-900">Rp 18.250.000</p>
+              <p className="mt-1 text-xs text-slate-500">Instant QRIS confirmations</p>
+            </div>
+            <span className="rounded-lg bg-purple-50 p-2 text-purple-600">
+              <QrCode className="h-5 w-5" />
+            </span>
           </div>
-          <p className="text-2xl font-bold text-slate-900">Rp 18.250.000</p>
-          <p className="text-[11px] text-purple-600 font-semibold mt-1">Instant QRIS payment confirmations</p>
-        </div>
-      </div>
+        </article>
+      </section>
 
       {/* Configuration Card */}
-      <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-xs space-y-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
         <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3">AutoLaris API Credentials & Payment Methods</h2>
 
         <div className="space-y-4 max-w-xl">
@@ -57,57 +74,65 @@ export default function AdminAutoLarisPage() {
               type="password"
               value={apiSecret}
               onChange={(e) => setApiSecret(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-mono text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
             />
           </div>
 
           <div className="space-y-3 border-t border-slate-100 pt-4">
-            <label className="text-xs font-bold text-slate-900 uppercase block">Enabled Payment Channels</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block pb-2">Enabled Payment Channels</label>
 
-            <div className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                id="qrisToggle"
-                checked={qrisEnabled}
-                onChange={(e) => setQrisEnabled(e.target.checked)}
-                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <label htmlFor="qrisToggle" className="text-xs font-semibold text-slate-700">
-                QRIS Instant Dynamic QR Code
+            <div className="space-y-4">
+              <label className="relative flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-4 transition-colors hover:bg-slate-50 has-[:checked]:border-indigo-200 has-[:checked]:bg-indigo-50/50">
+                <div className="flex h-6 items-center">
+                  <input
+                    type="checkbox"
+                    checked={qrisEnabled}
+                    onChange={(e) => setQrisEnabled(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
+                  />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-slate-900">QRIS Dynamic</p>
+                  <p className="text-xs text-slate-500">Instant QR Code generation and settlement</p>
+                </div>
               </label>
-            </div>
 
-            <div className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                id="bcaToggle"
-                checked={vaBcaEnabled}
-                onChange={(e) => setVaBcaEnabled(e.target.checked)}
-                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <label htmlFor="bcaToggle" className="text-xs font-semibold text-slate-700">
-                BCA Virtual Account
+              <label className="relative flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-4 transition-colors hover:bg-slate-50 has-[:checked]:border-indigo-200 has-[:checked]:bg-indigo-50/50">
+                <div className="flex h-6 items-center">
+                  <input
+                    type="checkbox"
+                    checked={vaBcaEnabled}
+                    onChange={(e) => setVaBcaEnabled(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
+                  />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-slate-900">BCA Virtual Account</p>
+                  <p className="text-xs text-slate-500">Auto-verified transfers via BCA</p>
+                </div>
               </label>
-            </div>
 
-            <div className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                id="mandiriToggle"
-                checked={vaMandiriEnabled}
-                onChange={(e) => setVaMandiriEnabled(e.target.checked)}
-                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <label htmlFor="mandiriToggle" className="text-xs font-semibold text-slate-700">
-                Mandiri Virtual Account
+              <label className="relative flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-4 transition-colors hover:bg-slate-50 has-[:checked]:border-indigo-200 has-[:checked]:bg-indigo-50/50">
+                <div className="flex h-6 items-center">
+                  <input
+                    type="checkbox"
+                    checked={vaMandiriEnabled}
+                    onChange={(e) => setVaMandiriEnabled(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
+                  />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-slate-900">Mandiri Virtual Account</p>
+                  <p className="text-xs text-slate-500">Auto-verified transfers via Mandiri</p>
+                </div>
               </label>
             </div>
           </div>
         </div>
 
         <div className="border-t border-slate-100 pt-4 flex justify-end">
-          <button className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-5 py-2 rounded-md shadow-xs transition-colors">
-            Save Payment Gateway Settings
+          <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/20">
+            Save Payment Settings
           </button>
         </div>
       </div>

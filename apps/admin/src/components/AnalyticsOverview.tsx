@@ -19,7 +19,7 @@ export function AnalyticsOverview() {
     <div className="space-y-6">
       {/* Top Level KPI Hierarchy */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs hover:shadow-sm transition-shadow relative overflow-hidden group">
           <div className="absolute -top-4 -right-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
             <DollarSign className="w-24 h-24 text-emerald-600" />
           </div>
@@ -41,7 +41,7 @@ export function AnalyticsOverview() {
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs hover:shadow-sm transition-shadow relative overflow-hidden group">
           <div className="absolute -top-4 -right-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
             <ShoppingBag className="w-24 h-24 text-indigo-600" />
           </div>
@@ -63,7 +63,7 @@ export function AnalyticsOverview() {
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs hover:shadow-sm transition-shadow relative overflow-hidden group">
           <div className="absolute -top-4 -right-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
             <Radio className="w-24 h-24 text-purple-600" />
           </div>
@@ -85,7 +85,7 @@ export function AnalyticsOverview() {
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs hover:shadow-sm transition-shadow relative overflow-hidden group">
           <div className="absolute -top-4 -right-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
             <TrendingUp className="w-24 h-24 text-amber-600" />
           </div>
@@ -109,7 +109,7 @@ export function AnalyticsOverview() {
       </div>
 
       {/* GMV Trend Chart */}
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
           <div>
             <h3 className="text-lg font-bold text-slate-900">Revenue Performance Trend</h3>

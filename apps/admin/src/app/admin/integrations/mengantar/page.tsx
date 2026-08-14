@@ -18,47 +18,63 @@ export default function AdminMengantarPage() {
   ]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">Mengantar 3PL Logistics Aggregator</h1>
-        <p className="text-xs text-slate-500">Configure Indonesian courier routing (JNE, SiCepat, J&T, SAP), RTS receiver risk engine, and waybill dispatch queue</p>
-      </div>
+    <div className="space-y-6 pb-8">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">
+            <Truck className="h-4 w-4" /> Logistics Aggregator
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Mengantar 3PL</h1>
+          <p className="mt-1 text-sm text-slate-500">Configure Indonesian courier routing, RTS receiver risk engine, and waybill dispatch queue.</p>
+        </div>
+      </header>
 
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-indigo-600 mb-2">
-            <span className="text-xs font-bold uppercase text-slate-500">Environment State</span>
-            <Truck className="w-4 h-4" />
+      <section className="grid gap-4 sm:grid-cols-3">
+        <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Environment State</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-900">{isSandbox ? "SANDBOX" : "PRODUCTION"}</p>
+              <span className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+                <CheckCircle2 className="h-3.5 w-3.5" /> API Connected
+              </span>
+            </div>
+            <span className="rounded-lg bg-indigo-50 p-2 text-indigo-600">
+              <Truck className="h-5 w-5" />
+            </span>
           </div>
-          <p className="text-xl font-bold text-slate-900">{isSandbox ? "SANDBOX MODE" : "PRODUCTION LIVE"}</p>
-          <span className="inline-flex items-center space-x-1 text-[11px] text-emerald-600 font-semibold mt-1">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Mengantar Aggregator API Connected</span>
-          </span>
-        </div>
+        </article>
 
-        <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-amber-600 mb-2">
-            <span className="text-xs font-bold uppercase text-slate-500">RTS Risk Score Threshold</span>
-            <ShieldAlert className="w-4 h-4" />
+        <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">RTS Risk Score Limit</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-amber-600">{riskThreshold}%</p>
+              <p className="mt-1 text-xs text-slate-500">Flag high-RTS buyers before dispatch</p>
+            </div>
+            <span className="rounded-lg bg-amber-50 p-2 text-amber-600">
+              <ShieldAlert className="h-5 w-5" />
+            </span>
           </div>
-          <p className="text-xl font-bold text-amber-600">{riskThreshold}% Risk Limit</p>
-          <p className="text-[11px] text-slate-400 mt-1">Flag high-RTS buyers before waybill dispatch</p>
-        </div>
+        </article>
 
-        <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-emerald-600 mb-2">
-            <span className="text-xs font-bold uppercase text-slate-500">Subdistrict Cache Index</span>
-            <Search className="w-4 h-4" />
+        <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Subdistrict Cache</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-900">7,230</p>
+              <p className="mt-1 text-xs text-slate-500">GIN Trigram Search (&lt;15ms latency)</p>
+            </div>
+            <span className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
+              <Search className="h-5 w-5" />
+            </span>
           </div>
-          <p className="text-xl font-bold text-slate-900">7,230 Kecamatan</p>
-          <p className="text-[11px] text-emerald-600 font-semibold mt-1">GIN Trigram Search (&lt;15ms latency)</p>
-        </div>
-      </div>
+        </article>
+      </section>
 
       {/* Configuration Section */}
-      <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-xs space-y-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
         <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3">Mengantar API Credentials & Courier Preferences</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -69,7 +85,7 @@ export default function AdminMengantarPage() {
                 type="text"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-mono text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
                 placeholder="Bearer prod-mengantar-..."
               />
               <p className="text-[10px] text-slate-500 mt-1">Endpoint: https://api.mengantar.com/v1</p>
@@ -81,21 +97,26 @@ export default function AdminMengantarPage() {
                 type="text"
                 value={webhookSecret}
                 onChange={(e) => setWebhookSecret(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-mono text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
                 placeholder="whsec_..."
               />
             </div>
 
             <div className="flex items-center space-x-3 pt-2">
-              <input
-                type="checkbox"
-                id="sandboxToggle"
-                checked={isSandbox}
-                onChange={(e) => setIsSandbox(e.target.checked)}
-                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <label htmlFor="sandboxToggle" className="text-xs font-semibold text-slate-700">
-                Enable Sandbox Mode (Overrides to https://sandbox.mengantar.com/v1)
+              <label className="relative inline-flex cursor-pointer items-center gap-3">
+                <div className="relative flex h-6 w-11 items-center rounded-full bg-slate-200 transition-colors has-[:checked]:bg-indigo-600">
+                  <input
+                    type="checkbox"
+                    id="sandboxToggle"
+                    checked={isSandbox}
+                    onChange={(e) => setIsSandbox(e.target.checked)}
+                    className="peer sr-only"
+                  />
+                  <div className="absolute left-[2px] h-5 w-5 rounded-full border border-slate-300 bg-white transition-all peer-checked:translate-x-full peer-checked:border-white"></div>
+                </div>
+                <span className="text-sm font-semibold text-slate-700">
+                  Enable Sandbox Mode (Overrides to https://sandbox.mengantar.com/v1)
+                </span>
               </label>
             </div>
           </div>
@@ -106,7 +127,7 @@ export default function AdminMengantarPage() {
               <select
                 value={defaultCourier}
                 onChange={(e) => setDefaultCourier(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 font-semibold"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
               >
                 <option value="JNE">JNE (Reguler / YES / JTR)</option>
                 <option value="SICEPAT">SiCepat (GOKIL / HALU / REG)</option>
@@ -121,7 +142,7 @@ export default function AdminMengantarPage() {
               <select
                 value={codRemittance}
                 onChange={(e) => setCodRemittance(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 font-semibold"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
               >
                 <option value="DAILY">Daily (T+1)</option>
                 <option value="WEEKLY">Weekly (Every Tuesday)</option>
@@ -131,21 +152,24 @@ export default function AdminMengantarPage() {
 
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">RTS Risk Score Flag Limit ({riskThreshold}%)</label>
-              <input
-                type="range"
-                min="10"
-                max="90"
-                value={riskThreshold}
-                onChange={(e) => setRiskThreshold(Number(e.target.value))}
-                className="w-full accent-indigo-600"
-              />
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  min="10"
+                  max="90"
+                  value={riskThreshold}
+                  onChange={(e) => setRiskThreshold(Number(e.target.value))}
+                  className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-indigo-600"
+                />
+                <span className="w-12 text-right text-sm font-bold text-slate-900">{riskThreshold}%</span>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Subdistrict GIN Trigram Search Demo */}
         <div className="border-t border-slate-100 pt-6 space-y-3">
-          <h3 className="text-xs font-bold text-slate-900 uppercase">Interactive GIN Trigram Address Search Preview</h3>
+          <h3 className="text-sm font-bold text-slate-900">Interactive GIN Trigram Address Search Preview</h3>
 
           <div className="relative max-w-md">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -154,27 +178,27 @@ export default function AdminMengantarPage() {
               placeholder="Type subdistrict e.g. Kebayoran..."
               value={searchDistrict}
               onChange={(e) => setSearchDistrict(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
             />
           </div>
 
-          <div className="overflow-x-auto border border-slate-100 rounded-md">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-500 font-semibold">
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50/80 text-xs uppercase tracking-wider text-slate-500 border-b border-slate-200">
                 <tr>
-                  <th className="py-2 px-3">Kecamatan</th>
-                  <th className="py-2 px-3">Kota / Kabupaten</th>
-                  <th className="py-2 px-3">Provinsi</th>
-                  <th className="py-2 px-3">Kode Pos</th>
+                  <th className="px-5 py-3 font-semibold">Kecamatan</th>
+                  <th className="px-5 py-3 font-semibold">Kota / Kabupaten</th>
+                  <th className="px-5 py-3 font-semibold">Provinsi</th>
+                  <th className="px-5 py-3 font-semibold">Kode Pos</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {districtResults.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50">
-                    <td className="py-2 px-3 font-semibold text-slate-800">{item.subdistrictName}</td>
-                    <td className="py-2 px-3 text-slate-600">{item.cityName}</td>
-                    <td className="py-2 px-3 text-slate-600">{item.provinceName}</td>
-                    <td className="py-2 px-3 font-mono text-slate-500">{item.postalCode}</td>
+                  <tr key={item.id} className="transition-colors hover:bg-slate-50/70">
+                    <td className="px-5 py-4 font-bold text-slate-900">{item.subdistrictName}</td>
+                    <td className="px-5 py-4 text-slate-600">{item.cityName}</td>
+                    <td className="px-5 py-4 text-slate-600">{item.provinceName}</td>
+                    <td className="px-5 py-4 font-mono text-slate-500">{item.postalCode}</td>
                   </tr>
                 ))}
               </tbody>

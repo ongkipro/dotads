@@ -30,47 +30,54 @@ export default function AdminAuditLogsPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">Immutable Audit Logs</h1>
-        <p className="text-xs text-slate-500">Security audit trail recording tenant modifications, user actions, and domain changes</p>
-      </div>
+    <div className="space-y-6 pb-8">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">
+            <ShieldAlert className="h-4 w-4" /> Security Logs
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Immutable Audit Logs</h1>
+          <p className="mt-1 text-sm text-slate-500">Security audit trail recording tenant modifications, user actions, and domain changes.</p>
+        </div>
+      </header>
 
-      <div className="bg-white rounded-lg border border-slate-200 shadow-xs p-5 space-y-4">
-        <div className="relative max-w-sm">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="Search action, actor email, or details..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
+        <div className="p-5 border-b border-slate-100 bg-white">
+          <div className="relative max-w-sm">
+            <Search className="w-5 h-5 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search action, actor email, or details..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
+            />
+          </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-semibold uppercase">
-                <th className="py-2.5 px-3">Action Event</th>
-                <th className="py-2.5 px-3">Actor</th>
-                <th className="py-2.5 px-3">IP Address</th>
-                <th className="py-2.5 px-3">Details</th>
-                <th className="py-2.5 px-3">Timestamp</th>
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50/80 text-xs uppercase tracking-wider text-slate-500 border-b border-slate-200">
+              <tr>
+                <th className="px-5 py-3 font-semibold">Action Event</th>
+                <th className="px-5 py-3 font-semibold">Actor</th>
+                <th className="px-5 py-3 font-semibold">IP Address</th>
+                <th className="px-5 py-3 font-semibold">Details</th>
+                <th className="px-5 py-3 font-semibold">Timestamp</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
               {filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-2.5 px-3">
-                    <span className="bg-slate-100 text-slate-800 font-bold px-2 py-0.5 rounded border border-slate-200">
+                <tr key={log.id} className="transition-colors hover:bg-slate-50/70">
+                  <td className="px-5 py-4">
+                    <span className="bg-slate-100 text-slate-800 font-bold px-2.5 py-1 rounded-md border border-slate-200">
                       {log.action}
                     </span>
                   </td>
-                  <td className="py-2.5 px-3 text-slate-700 font-sans">{log.actorEmail}</td>
-                  <td className="py-2.5 px-3 text-slate-500">{log.ipAddress}</td>
-                  <td className="py-2.5 px-3 text-slate-800 font-sans">{log.details}</td>
-                  <td className="py-2.5 px-3 text-slate-400">{log.createdAt}</td>
+                  <td className="px-5 py-4 text-slate-700 font-sans font-medium">{log.actorEmail}</td>
+                  <td className="px-5 py-4 text-slate-500">{log.ipAddress}</td>
+                  <td className="px-5 py-4 text-slate-800 font-sans">{log.details}</td>
+                  <td className="px-5 py-4 text-slate-400">{log.createdAt}</td>
                 </tr>
               ))}
             </tbody>

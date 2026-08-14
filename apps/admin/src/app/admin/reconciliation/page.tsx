@@ -38,8 +38,8 @@ export default function ReconciliationPage() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Pending Settlement</h3>
             <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center">
@@ -52,7 +52,7 @@ export default function ReconciliationPage() {
           <p className="text-xs font-medium text-amber-600 mt-2">14 transactions processing</p>
         </div>
         
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Ready to Withdraw</h3>
             <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
@@ -65,7 +65,7 @@ export default function ReconciliationPage() {
           <p className="text-xs font-medium text-emerald-600 mt-2">Available in wallet balance</p>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Disputes / Holds</h3>
             <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center">
@@ -80,7 +80,7 @@ export default function ReconciliationPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+      <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden flex flex-col">
         {/* Tabs */}
         <div className="flex items-center border-b border-slate-200 px-2 pt-2">
           <button
@@ -114,7 +114,7 @@ export default function ReconciliationPage() {
             <input
               type="text"
               placeholder="Search TX ID or Order No..."
-              className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-sm"
+              className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all shadow-sm"
             />
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
@@ -144,7 +144,7 @@ function AutoLarisTable() {
   return (
     <table className="w-full text-left border-collapse">
       <thead>
-        <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 font-bold">
+        <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 font-bold">
           <th className="p-4">Transaction ID</th>
           <th className="p-4">Order Ref</th>
           <th className="p-4">Date & Time</th>
@@ -166,8 +166,8 @@ function AutoLarisTable() {
             <td className="p-4 text-sm font-medium text-rose-600 text-right">-{tx.fee}</td>
             <td className="p-4 text-sm font-bold text-emerald-700 text-right">{tx.net}</td>
             <td className="p-4">
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
-                tx.status === "Settled" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] border font-bold ${
+                tx.status === "Settled" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
               }`}>
                 {tx.status}
               </span>
@@ -189,7 +189,7 @@ function MengantarTable() {
   return (
     <table className="w-full text-left border-collapse">
       <thead>
-        <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 font-bold">
+        <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 font-bold">
           <th className="p-4">Remittance ID</th>
           <th className="p-4">AWB / Resi</th>
           <th className="p-4">Delivery Date</th>
@@ -215,8 +215,8 @@ function MengantarTable() {
             <td className="p-4 text-sm font-medium text-rose-600 text-right">-{rmt.fee}</td>
             <td className="p-4 text-sm font-bold text-emerald-700 text-right">{rmt.net}</td>
             <td className="p-4">
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
-                rmt.status === "Remitted" ? "bg-indigo-100 text-indigo-700" : "bg-amber-100 text-amber-700"
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] border font-bold ${
+                rmt.status === "Remitted" ? "bg-indigo-50 text-indigo-700 border-indigo-200" : "bg-amber-50 text-amber-700 border-amber-200"
               }`}>
                 {rmt.status}
               </span>

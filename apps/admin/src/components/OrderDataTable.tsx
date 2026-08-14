@@ -111,7 +111,7 @@ export function OrderDataTable() {
   });
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
       {/* Table Header Controls */}
       <div className="p-5 border-b border-slate-200 bg-white">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -153,7 +153,7 @@ export function OrderDataTable() {
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm border-collapse">
           <thead>
-            <tr className="bg-slate-50/80 text-slate-500 font-semibold uppercase text-xs tracking-wider border-b border-slate-200">
+            <tr className="bg-slate-50/80 text-slate-500 font-semibold uppercase text-[11px] tracking-wider border-b border-slate-200">
               <th className="py-4 px-5">Order Number</th>
               <th className="py-4 px-5">Customer</th>
               <th className="py-4 px-5">Total Amount</th>
@@ -183,10 +183,10 @@ export function OrderDataTable() {
                   <td className="py-4 px-5">
                     <div className="flex flex-col items-start gap-1">
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] border font-bold ${
                           order.paymentStatus === "PAID"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-amber-100 text-amber-700"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-amber-50 text-amber-700 border-amber-200"
                         }`}
                       >
                         {order.paymentStatus}
@@ -282,8 +282,8 @@ export function OrderDataTable() {
                   <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                     <p className="text-xs font-medium text-slate-500 mb-1">Method</p>
                     <p className="font-bold text-slate-900">{selectedOrder.paymentMethod}</p>
-                    <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-bold ${
-                      selectedOrder.paymentStatus === "PAID" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                    <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] border font-bold ${
+                      selectedOrder.paymentStatus === "PAID" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
                     }`}>
                       {selectedOrder.paymentStatus}
                     </span>
