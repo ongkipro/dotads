@@ -4,17 +4,20 @@ const requestCounts = new Map<string, { count: number; resetAt: number }>();
 
 export async function rateLimitMiddleware(c: Context, next: Next) {
   const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "127.0.0.1";
+  const tenantId = c.req.header("x-tenant-id") || c.req.header("host") || "global";
+  const rateKey = `${tenantId}:${ip}`;
   const now = Date.now();
   const windowMs = 60 * 1000; // 1 minute
-  const maxRequests = 120; // 120 requests per minute per IP
+  const maxRequests = 120; // 120 requests per minute per IP/Tenant
 
-  let record = requestCounts.get(ip);
+  let record = requestCounts.get(rateKey);
   if (!record || now > record.resetAt) {
     record = { count: 1, resetAt: now + windowMs };
-    requestCounts.set(ip, record);
+    requestCounts.set(rateKey, record);
   } else {
     record.count++;
   }
+
 
   c.header("X-RateLimit-Limit", maxRequests.toString());
   c.header("X-RateLimit-Remaining", Math.max(0, maxRequests - record.count).toString());

@@ -1,7 +1,7 @@
 import type { Context, Next } from "hono";
 import { auth, hasPermission, type Role } from "@dotads/auth";
 import { db, schema } from "@dotads/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 export interface AuthContext {
   userId: string;
@@ -49,7 +49,7 @@ export async function authMiddleware(c: Context<AppEnv>, next: Next) {
     const [member] = await db
       .select()
       .from(schema.members)
-      .where(eq(schema.members.organizationId, activeOrgId));
+      .where(and(eq(schema.members.organizationId, activeOrgId), eq(schema.members.userId, userId)));
 
     if (member) {
       role = member.role as Role;
