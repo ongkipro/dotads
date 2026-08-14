@@ -24,6 +24,8 @@ All architectural components, contracts, OpenAPI handlers, database schemas, log
 - [x] **Milestone 6: Mengantar Logistics, AutoLaris Payments & Multi-Platform Outbox Engine (`@dotads/integrations`, `apps/api`)**
 - [x] **Milestone 7: Verification, Rate Limiting, Container Specs & Release Smoke (`apps/api`, `docker-compose.coolify.yml`, `scripts/smoke-release.ts`)**
 - [x] **Milestone 8: Canonical Form Engine Presets Specification (`FULL`, `HYBRID`, `MIDDLE`, `MINI`)**
+- [x] **Milestone 9: Master Analysis, Page-by-Page Audit & Architectural Roadmap (`SYSTEM_WIDE_AUDIT_AND_ROADMAP.md`)**
+
 
 ---
 
