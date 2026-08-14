@@ -19,6 +19,25 @@ services:
       timeout: 5s
       retries: 5
 
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: dotads_pgbouncer
+    restart: always
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: dotads_user
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-dotads_password_prod}
+      DB_NAME: dotads_db
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 50
+    ports:
+      - "6432:6432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api:
     build:
       context: .
@@ -27,12 +46,11 @@ services:
     restart: always
     environment:
       PORT: 8787
-      DATABASE_URL: postgres://dotads_user:${POSTGRES_PASSWORD:-dotads_password_prod}@postgres:5432/dotads_db
+      DATABASE_URL: postgres://dotads_user:${POSTGRES_PASSWORD:-dotads_password_prod}@pgbouncer:6432/dotads_db
     ports:
       - "8787:8787"
     depends_on:
-      postgres:
-        condition: service_healthy
+      - pgbouncer
 
   admin:
     build:
