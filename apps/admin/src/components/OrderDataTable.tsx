@@ -7,7 +7,6 @@ import {
   Download,
   Eye,
   MapPin,
-  MessageSquare,
   PackageCheck,
   Pencil,
   Printer,
@@ -252,14 +251,6 @@ const buildDynamicWhatsAppUrl = (
   return `https://wa.me/${internationalPhone}?text=${encodeURIComponent(messageText)}`;
 };
 
-const buildWhatsAppUrl = (phone: string, orderNumber: string, customerName: string) => {
-  const digits = phone.replace(/\D/g, "");
-  const internationalPhone = digits.startsWith("62") ? digits : `62${digits.replace(/^0/, "")}`;
-  const message = encodeURIComponent(
-    `Halo Kak ${customerName}, terima kasih sudah memesan di toko kami. Kami ingin menindaklanjuti pesanan ${orderNumber}.`,
-  );
-  return `https://wa.me/${internationalPhone}?text=${message}`;
-};
 const toCsvCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
 
 export function OrderDataTable() {

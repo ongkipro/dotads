@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { MoveUp, MoveDown, Trash2, Plus, Layout, Eye, Sparkles } from "lucide-react";
+import { MoveUp, MoveDown, Trash2, Layout, Sparkles } from "lucide-react";
 
 export interface PageBlock {
   id: string;

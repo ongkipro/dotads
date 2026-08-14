@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import type { Role } from "@dotads/auth";
 import { AdminSidebar } from "@/components/AdminSidebar";
-import { Shield, Store, UserCheck, ChevronDown, ExternalLink } from "lucide-react";
+import { Store, UserCheck, ExternalLink } from "lucide-react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<Role>("TENANT_OWNER");

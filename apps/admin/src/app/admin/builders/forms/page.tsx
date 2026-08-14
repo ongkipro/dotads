@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Settings, Type, Image as ImageIcon, Layout, MoveUp, MoveDown, Trash2, Eye, Save, Smartphone, Monitor, Code, Check, X, Copy, CheckCircle2, GripVertical, ChevronDown } from "lucide-react";
+import { Plus, Type, Layout, MoveUp, MoveDown, Trash2, Save, Smartphone, Monitor, Code, Check, X, Copy, CheckCircle2, GripVertical, ChevronDown } from "lucide-react";
 
 type FieldType = "TEXT" | "TEXTAREA" | "DROPDOWN" | "RADIO" | "CHECKBOX" | "PHONE" | "EMAIL";
 

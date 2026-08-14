@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, CheckCircle2, Clock3, Eye, MapPin, MessageCircle, PackageCheck, Search, ShieldCheck, Truck, Weight, X, Zap } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3, Eye, MapPin, MessageCircle, PackageCheck, Search, Truck, Weight, X, Zap } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 
 type Quote = {

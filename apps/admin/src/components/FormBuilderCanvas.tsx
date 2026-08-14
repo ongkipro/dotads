@@ -31,7 +31,7 @@ const PRESET_TEMPLATES = {
 };
 
 export function FormBuilderCanvas() {
-  const [mode, setMode] = useState<"hybrid" | "full" | "mini">("hybrid");
+  const [mode, setMode] = useState<"hybrid" | "full" | "middle" | "mini">("hybrid");
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("mobile");
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);

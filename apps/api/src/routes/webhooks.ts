@@ -159,6 +159,9 @@ webhooksRouter.openapi(
       return c.json({ error: "Order not found" }, 404);
     }
 
+    if (amount && Number(amount) !== order.totalMinor) {
+      console.warn(`[AutoLaris Webhook] Amount mismatch for order ${order.id}: expected ${order.totalMinor}, got ${amount}`);
+    }
     // Verify HMAC Signature against tenant's AutoLaris API Secret
     const [config] = await db
       .select()

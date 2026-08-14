@@ -1,6 +1,6 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { db, schema } from "@dotads/db";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   CreateOrderPublicSchema,
   DraftLeadSchema,
@@ -390,8 +390,8 @@ publicRouter.openapi(
     },
   }),
   async (c) => {
-    const q = c.req.query("q") || "";
-    return c.json([
+    const queryTerm = (c.req.query("q") || "").toLowerCase();
+    const results = [
       {
         subdistrictId: "5fc62f63f8ff44b34a4ce00a",
         subdistrictName: "Kebayoran Baru",
@@ -400,7 +400,17 @@ publicRouter.openapi(
         provinceName: "DKI Jakarta",
         postalCode: "12110",
       },
-    ]);
+      {
+        subdistrictId: "ID_SUB_1002",
+        subdistrictName: "Gambir",
+        districtName: "Gambir",
+        cityName: "Jakarta Pusat",
+        provinceName: "DKI Jakarta",
+        postalCode: "10110",
+      },
+    ].filter(r => !queryTerm || r.subdistrictName.toLowerCase().includes(queryTerm) || r.cityName.toLowerCase().includes(queryTerm));
+
+    return c.json(results);
   }
 );
 

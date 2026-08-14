@@ -32,10 +32,177 @@ export class DotAdsFormElement extends HTMLElement {
   }
 
   private get mode(): string {
-    return this.getAttribute("mode") || "hybrid";
+    return (this.getAttribute("mode") || "hybrid").toLowerCase();
   }
 
+  private currentStep: number = 1;
+
   private render() {
+    const currentMode = this.mode;
+
+    let contentHtml = "";
+    if (currentMode === "mini") {
+      contentHtml = `
+        <div class="form-title">Tanya Admin via WhatsApp</div>
+        <div class="error-summary" id="error-summary"></div>
+        <form id="dotads-order-form">
+          <div class="field-group">
+            <label for="customerName">Nama Lengkap *</label>
+            <input type="text" id="customerName" name="customerName" required placeholder="Contoh: Budi Santoso" />
+          </div>
+          <div class="field-group">
+            <label for="customerPhone">Nomor WhatsApp *</label>
+            <input type="tel" id="customerPhone" name="customerPhone" required placeholder="081234567890" />
+          </div>
+          <button type="submit" class="submit-button wa-btn" id="submit-btn">Chat Admin via WhatsApp Sekarang</button>
+        </form>
+      `;
+    } else if (currentMode === "middle") {
+      contentHtml = `
+        <div class="form-title">Pesan Instan (1.5-Step Direct)</div>
+        <div class="error-summary" id="error-summary"></div>
+        <form id="dotads-order-form">
+          <div class="field-group">
+            <label for="customerName">Nama Lengkap Pelanggan *</label>
+            <input type="text" id="customerName" name="customerName" required placeholder="Contoh: Budi Santoso" />
+          </div>
+          <div class="field-group">
+            <label for="customerPhone">Nomor WhatsApp (Aktif) *</label>
+            <input type="tel" id="customerPhone" name="customerPhone" required placeholder="081234567890" />
+          </div>
+          <div class="field-group">
+            <label for="subdistrictId">Kecamatan & Kota *</label>
+            <select id="subdistrictId" name="subdistrictId" required>
+              <option value="ID_SUB_1001">Kebayoran Baru, Jakarta Selatan</option>
+              <option value="ID_SUB_1002">Gambir, Jakarta Pusat</option>
+              <option value="ID_SUB_1003">Coblong, Bandung</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="shippingAddress">Alamat Ringkas *</label>
+            <textarea id="shippingAddress" name="shippingAddress" rows="2" required placeholder="Jl. Merdeka No. 123"></textarea>
+          </div>
+          <div class="field-group hidden-drawer" id="drawer-options">
+            <label for="courierCode">Pilihan Kurir</label>
+            <select id="courierCode" name="courierCode">
+              <option value="JNE">JNE Express</option>
+              <option value="SICEPAT">SiCepat Express</option>
+              <option value="J&T">J&T Express</option>
+              <option value="SAP">SAP Express</option>
+            </select>
+            <label for="paymentMethod" style="margin-top:8px;">Metode Pembayaran</label>
+            <select id="paymentMethod" name="paymentMethod">
+              <option value="COD">COD (Bayar di Tempat)</option>
+              <option value="QRIS">QRIS / Instant E-Wallet</option>
+              <option value="VA_BCA">Virtual Account BCA</option>
+            </select>
+          </div>
+          <button type="submit" class="submit-button" id="submit-btn">Beli Langsung (COD)</button>
+        </form>
+      `;
+    } else if (currentMode === "hybrid") {
+      contentHtml = `
+        <div class="stepper-bar">
+          <span class="step-badge ${this.currentStep === 1 ? 'active' : ''}">1. Data Diri</span>
+          <span class="step-badge ${this.currentStep === 2 ? 'active' : ''}">2. Alamat & Bayar</span>
+        </div>
+        <div class="error-summary" id="error-summary"></div>
+        <form id="dotads-order-form">
+          ${this.currentStep === 1 ? `
+            <div class="field-group">
+              <label for="customerName">Nama Lengkap Pelanggan *</label>
+              <input type="text" id="customerName" name="customerName" required placeholder="Contoh: Budi Santoso" />
+            </div>
+            <div class="field-group">
+              <label for="customerPhone">Nomor WhatsApp (Aktif) *</label>
+              <input type="tel" id="customerPhone" name="customerPhone" required placeholder="081234567890" />
+            </div>
+            <button type="button" class="submit-button" id="next-step-btn">Lanjut ke Alamat Pengiriman →</button>
+          ` : `
+            <div class="field-group">
+              <label for="shippingAddress">Alamat Lengkap Pengiriman *</label>
+              <textarea id="shippingAddress" name="shippingAddress" rows="3" required placeholder="Jl. Merdeka No. 123, RT 01 RW 02"></textarea>
+            </div>
+            <div class="field-group">
+              <label for="subdistrictId">Kecamatan & Kota *</label>
+              <select id="subdistrictId" name="subdistrictId" required>
+                <option value="ID_SUB_1001">Kebayoran Baru, Jakarta Selatan</option>
+                <option value="ID_SUB_1002">Gambir, Jakarta Pusat</option>
+                <option value="ID_SUB_1003">Coblong, Bandung</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="courierCode">Ekspedisi Kurir *</label>
+              <select id="courierCode" name="courierCode" required>
+                <option value="JNE">JNE Express</option>
+                <option value="SICEPAT">SiCepat Express</option>
+                <option value="J&T">J&T Express</option>
+                <option value="SAP">SAP Express</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="paymentMethod">Metode Pembayaran *</label>
+              <select id="paymentMethod" name="paymentMethod" required>
+                <option value="COD">COD (Bayar di Tempat)</option>
+                <option value="QRIS">QRIS / Instant E-Wallet</option>
+                <option value="VA_BCA">Virtual Account BCA</option>
+              </select>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="secondary-button" id="prev-step-btn">← Kembali</button>
+              <button type="submit" class="submit-button" id="submit-btn" style="flex:1;">Konfirmasi Pesanan Sekarang</button>
+            </div>
+          `}
+        </form>
+      `;
+    } else {
+      // FULL Mode (Default 1-Step COD)
+      contentHtml = `
+        <div class="form-title">Pesan Sekarang (Single-Page COD)</div>
+        <div class="error-summary" id="error-summary"></div>
+        <form id="dotads-order-form">
+          <div class="field-group">
+            <label for="customerName">Nama Lengkap Pelanggan *</label>
+            <input type="text" id="customerName" name="customerName" required placeholder="Contoh: Budi Santoso" />
+          </div>
+          <div class="field-group">
+            <label for="customerPhone">Nomor WhatsApp (Aktif) *</label>
+            <input type="tel" id="customerPhone" name="customerPhone" required placeholder="081234567890" />
+          </div>
+          <div class="field-group">
+            <label for="shippingAddress">Alamat Lengkap Pengiriman *</label>
+            <textarea id="shippingAddress" name="shippingAddress" rows="3" required placeholder="Jl. Merdeka No. 123, RT 01 RW 02"></textarea>
+          </div>
+          <div class="field-group">
+            <label for="subdistrictId">Kecamatan & Kota *</label>
+            <select id="subdistrictId" name="subdistrictId" required>
+              <option value="ID_SUB_1001">Kebayoran Baru, Jakarta Selatan</option>
+              <option value="ID_SUB_1002">Gambir, Jakarta Pusat</option>
+              <option value="ID_SUB_1003">Coblong, Bandung</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="courierCode">Pilihan Kurir Ekspedisi *</label>
+            <select id="courierCode" name="courierCode" required>
+              <option value="JNE">JNE Express</option>
+              <option value="SICEPAT">SiCepat Express</option>
+              <option value="J&T">J&T Express</option>
+              <option value="SAP">SAP Express</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="paymentMethod">Metode Pembayaran *</label>
+            <select id="paymentMethod" name="paymentMethod" required>
+              <option value="COD">COD (Bayar di Tempat)</option>
+              <option value="QRIS">QRIS / Instant E-Wallet</option>
+              <option value="VA_BCA">Virtual Account BCA</option>
+            </select>
+          </div>
+          <button type="submit" class="submit-button" id="submit-btn">Pesan Sekarang (COD / QRIS)</button>
+        </form>
+      `;
+    }
+
     this.shadow.innerHTML = `
       <style>
         :host {
@@ -55,6 +222,23 @@ export class DotAdsFormElement extends HTMLElement {
           font-weight: 700;
           margin-bottom: 16px;
           color: #0f172a;
+        }
+        .stepper-bar {
+          display: flex;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+        .step-badge {
+          padding: 6px 12px;
+          border-radius: 20px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          background: #f1f5f9;
+          color: #64748b;
+        }
+        .step-badge.active {
+          background: #e0e7ff;
+          color: #3730a3;
         }
         .field-group {
           margin-bottom: 16px;
@@ -95,6 +279,21 @@ export class DotAdsFormElement extends HTMLElement {
         .submit-button:hover {
           background: #1d4ed8;
         }
+        .submit-button.wa-btn {
+          background: #16a34a;
+        }
+        .submit-button.wa-btn:hover {
+          background: #15803d;
+        }
+        .secondary-button {
+          background: #f1f5f9;
+          color: #334155;
+          font-weight: 600;
+          padding: 12px 16px;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          cursor: pointer;
+        }
         .submit-button:disabled {
           background: #94a3b8;
           cursor: not-allowed;
@@ -111,56 +310,30 @@ export class DotAdsFormElement extends HTMLElement {
         }
       </style>
       <div class="form-container">
-        <div class="form-title">Pesan Sekarang (Single-Page Order)</div>
-        <div class="error-summary" id="error-summary"></div>
-        <form id="dotads-order-form">
-          <div class="field-group">
-            <label for="customerName">Nama Lengkap *</label>
-            <input type="text" id="customerName" name="customerName" required placeholder="Contoh: Budi Santoso" />
-          </div>
-          <div class="field-group">
-            <label for="customerPhone">Nomor WhatsApp / HP *</label>
-            <input type="tel" id="customerPhone" name="customerPhone" required placeholder="081234567890" />
-          </div>
-          <div class="field-group">
-            <label for="shippingAddress">Alamat Lengkap Pengiriman *</label>
-            <textarea id="shippingAddress" name="shippingAddress" rows="3" required placeholder="Jl. Merdeka No. 123, RT 01 RW 02"></textarea>
-          </div>
-          <div class="field-group">
-            <label for="subdistrictId">Kecamatan / Kota *</label>
-            <select id="subdistrictId" name="subdistrictId" required>
-              <option value="">Pilih Kecamatan...</option>
-              <option value="ID_SUB_1001">Kebayoran Baru, Jakarta Selatan</option>
-              <option value="ID_SUB_1002">Gambir, Jakarta Pusat</option>
-              <option value="ID_SUB_1003">Coblong, Bandung</option>
-            </select>
-          </div>
-          <div class="field-group">
-            <label for="courierCode">Ekspedisi Kurir *</label>
-            <select id="courierCode" name="courierCode" required>
-              <option value="JNE">JNE Express</option>
-              <option value="SICEPAT">SiCepat Express</option>
-              <option value="J&T">J&T Express</option>
-              <option value="SAP">SAP Express</option>
-            </select>
-          </div>
-          <div class="field-group">
-            <label for="paymentMethod">Metode Pembayaran *</label>
-            <select id="paymentMethod" name="paymentMethod" required>
-              <option value="COD">COD (Bayar di Tempat)</option>
-              <option value="QRIS">QRIS / Instant E-Wallet</option>
-              <option value="VA_BCA">Virtual Account BCA</option>
-              <option value="VA_MANDIRI">Virtual Account Mandiri</option>
-            </select>
-          </div>
-          <button type="submit" class="submit-button" id="submit-btn">Pesan Sekarang</button>
-        </form>
+        ${contentHtml}
       </div>
     `;
 
     const form = this.shadow.querySelector("#dotads-order-form") as HTMLFormElement;
     if (form) {
       form.addEventListener("submit", (e) => this.handleSubmit(e));
+    }
+
+    const nextBtn = this.shadow.querySelector("#next-step-btn") as HTMLButtonElement;
+    if (nextBtn) {
+      nextBtn.addEventListener("click", () => {
+        this.handleDraftLead();
+        this.currentStep = 2;
+        this.render();
+      });
+    }
+
+    const prevBtn = this.shadow.querySelector("#prev-step-btn") as HTMLButtonElement;
+    if (prevBtn) {
+      prevBtn.addEventListener("click", () => {
+        this.currentStep = 1;
+        this.render();
+      });
     }
 
     const phoneInput = this.shadow.querySelector("#customerPhone") as HTMLInputElement;
@@ -207,12 +380,20 @@ export class DotAdsFormElement extends HTMLElement {
     }
 
     try {
-      const customerName = (this.shadow.querySelector("#customerName") as HTMLInputElement).value;
-      const customerPhone = (this.shadow.querySelector("#customerPhone") as HTMLInputElement).value;
-      const shippingAddress = (this.shadow.querySelector("#shippingAddress") as HTMLTextAreaElement).value;
-      const subdistrictId = (this.shadow.querySelector("#subdistrictId") as HTMLSelectElement).value;
-      const courierCode = (this.shadow.querySelector("#courierCode") as HTMLSelectElement).value;
-      const paymentMethod = (this.shadow.querySelector("#paymentMethod") as HTMLSelectElement).value;
+      const customerName = (this.shadow.querySelector("#customerName") as HTMLInputElement)?.value || "";
+      const customerPhone = (this.shadow.querySelector("#customerPhone") as HTMLInputElement)?.value || "";
+
+      if (this.mode === "mini") {
+        await this.handleDraftLead();
+        const waText = encodeURIComponent(`Halo Admin, saya ${customerName} tertarik dengan produk ini. Apakah masih tersedia?`);
+        window.location.href = `https://wa.me/6281234567890?text=${waText}`;
+        return;
+      }
+
+      const shippingAddress = (this.shadow.querySelector("#shippingAddress") as HTMLTextAreaElement)?.value || "Alamat belum diisi";
+      const subdistrictId = (this.shadow.querySelector("#subdistrictId") as HTMLSelectElement)?.value || "ID_SUB_1001";
+      const courierCode = (this.shadow.querySelector("#courierCode") as HTMLSelectElement)?.value || "JNE";
+      const paymentMethod = (this.shadow.querySelector("#paymentMethod") as HTMLSelectElement)?.value || "COD";
 
       const payload = {
         tenantId: this.tenantId || "2f2ca823-46bf-4ab5-a5fe-61a49d175fa8",

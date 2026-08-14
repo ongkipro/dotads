@@ -1,6 +1,6 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { db, schema } from "@dotads/db";
-import { authMiddleware, requirePermission, type AuthContext } from "../middleware/auth.ts";
+import { authMiddleware, requirePermission } from "../middleware/auth.ts";
 
 export const platformRouter = new OpenAPIHono();
 
