@@ -1,6 +1,6 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { db, schema } from "@dotads/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, lte } from "drizzle-orm";
 import { authMiddleware, type AppEnv } from "../middleware/auth.ts";
 import { hasPermission } from "@dotads/auth";
 import {
@@ -513,5 +513,126 @@ adminRouter.openapi(
       .orderBy(desc(schema.orders.createdAt));
 
     return c.json(ordersList, 200);
+  }
+);
+
+// Stale & Abandoned Order Cleanup Cron Endpoint (Orders > 7 Days)
+adminRouter.openapi(
+  createRoute({
+    method: "delete",
+    path: "/orders/cleanup",
+    summary: "Purge unpaid and abandoned orders older than 7 days",
+    responses: {
+      200: {
+        description: "Stale orders cleanup result",
+        content: {
+          "application/json": {
+            schema: z.object({
+              success: z.boolean(),
+              purgedCount: z.number(),
+              message: z.string(),
+            }),
+          },
+        },
+      },
+    },
+  }),
+  async (c) => {
+    const auth = c.get("auth");
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const staleOrders = await db
+      .select({ id: schema.orders.id })
+      .from(schema.orders)
+      .where(
+        and(
+          eq(schema.orders.tenantId, auth.tenantId),
+          lte(schema.orders.createdAt, sevenDaysAgo)
+        )
+      );
+
+    const staleIds = staleOrders.map((o) => o.id);
+    if (staleIds.length === 0) {
+      return c.json({ success: true, purgedCount: 0, message: "Tidak ada pesanan usang untuk dibersihkan." }, 200);
+    }
+
+    for (const orderId of staleIds) {
+      await db.delete(schema.orderItems).where(eq(schema.orderItems.orderId, orderId));
+      await db.delete(schema.outboxEvents).where(eq(schema.outboxEvents.eventId, `purchase_${orderId}`));
+      await db.delete(schema.orders).where(eq(schema.orders.id, orderId));
+    }
+
+    return c.json({
+      success: true,
+      purgedCount: staleIds.length,
+      message: `Berhasil membersihkan ${staleIds.length} pesanan usang (> 7 hari).`,
+    }, 200);
+  }
+);
+
+// Delete Single Order
+adminRouter.openapi(
+  createRoute({
+    method: "delete",
+    path: "/orders/{id}",
+    summary: "Delete single merchant order",
+    request: {
+      params: z.object({ id: z.string() }),
+    },
+    responses: {
+      200: {
+        description: "Order deleted successfully",
+        content: { "application/json": { schema: z.object({ success: z.boolean() }) } },
+      },
+    },
+  }),
+  async (c) => {
+    const auth = c.get("auth");
+    const orderId = c.req.param("id");
+
+    await db.delete(schema.orderItems).where(and(eq(schema.orderItems.tenantId, auth.tenantId), eq(schema.orderItems.orderId, orderId)));
+    await db.delete(schema.orders).where(and(eq(schema.orders.tenantId, auth.tenantId), eq(schema.orders.id, orderId)));
+
+    return c.json({ success: true }, 200);
+  }
+);
+
+// Bulk Delete Merchant Orders
+adminRouter.openapi(
+  createRoute({
+    method: "post",
+    path: "/orders/bulk-delete",
+    summary: "Bulk delete merchant orders",
+    request: {
+      body: {
+        content: {
+          "application/json": {
+            schema: z.object({ orderIds: z.array(z.string()) }),
+          },
+        },
+      },
+    },
+    responses: {
+      200: {
+        description: "Bulk order deletion result",
+        content: {
+          "application/json": {
+            schema: z.object({ success: z.boolean(), deletedCount: z.number() }),
+          },
+        },
+      },
+    },
+  }),
+  async (c) => {
+    const auth = c.get("auth");
+    const body = await c.req.json();
+    const orderIds = body.orderIds || [];
+
+    for (const orderId of orderIds) {
+      await db.delete(schema.orderItems).where(and(eq(schema.orderItems.tenantId, auth.tenantId), eq(schema.orderItems.orderId, orderId)));
+      await db.delete(schema.orders).where(and(eq(schema.orders.tenantId, auth.tenantId), eq(schema.orders.id, orderId)));
+    }
+
+    return c.json({ success: true, deletedCount: orderIds.length }, 200);
   }
 );

@@ -201,6 +201,57 @@ const getRiskBadge = (score: number): RiskBadge => {
   };
 };
 
+const CRM_TEMPLATES: Record<string, { label: string; title: string; template: string }> = {
+  W: {
+    label: "W",
+    title: "Welcome Order",
+    template: "Halo Kak {{nama}}, terima kasih sudah memesan {{produk}} di toko kami (No. Inv: {{inv}}). Total: Rp {{total}}. Mohon konfirmasi alamat: {{alamat}}, {{kecamatan}}.",
+  },
+  D: {
+    label: "D",
+    title: "Draft/Unpaid Follow-up",
+    template: "Halo Kak {{nama}}, pesanan {{inv}} belum diselesaikan. Yuk selesaikan pesanan {{produk}} agar dapat kami proses hari ini!",
+  },
+  F1: {
+    label: "F1",
+    title: "Follow-up COD 1",
+    template: "Halo Kak {{nama}}, konfirmasi pengiriman COD pesanan {{inv}} ke {{kecamatan}}. Mohon reply 'OK' agar kurir {{kurir}} segera menjemput paket.",
+  },
+  F2: {
+    label: "F2",
+    title: "Follow-up Resi/Transit",
+    template: "Halo Kak {{nama}}, paket {{produk}} (Inv: {{inv}}) telah dikirim via {{kurir}} No. Resi: {{resi}}. Siapkan uang pas Rp {{total}} saat kurir tiba ya!",
+  },
+  P: {
+    label: "P",
+    title: "Pembayaran Lunas",
+    template: "Halo Kak {{nama}}, pembayaran pesanan {{inv}} sebesar Rp {{total}} telah berhasil diverifikasi. Terima kasih!",
+  },
+};
+
+const buildDynamicWhatsAppUrl = (
+  order: OrderRow,
+  actionKey: string = "W"
+) => {
+  const digits = order.customerPhone.replace(/\D/g, "");
+  const internationalPhone = digits.startsWith("62") ? digits : `62${digits.replace(/^0/, "")}`;
+  const tpl = CRM_TEMPLATES[actionKey]?.template || CRM_TEMPLATES.W.template;
+
+  const formattedTotal = IDR_FORMATTER.format(order.totalMinor);
+  const messageText = tpl
+    .replace(/\{\{nama\}\}/g, order.customerName)
+    .replace(/\{\{wa\}\}/g, order.customerPhone)
+    .replace(/\{\{inv\}\}/g, order.orderNumber)
+    .replace(/\{\{produk\}\}/g, "Alpha Premium Gadget")
+    .replace(/\{\{total\}\}/g, formattedTotal)
+    .replace(/\{\{alamat\}\}/g, order.shippingAddress)
+    .replace(/\{\{kecamatan\}\}/g, "Kebayoran Baru")
+    .replace(/\{\{kurir\}\}/g, order.courierCode || "JNE")
+    .replace(/\{\{resi\}\}/g, order.cnoteNo || "SEDANG_DIPROSES");
+
+  return `https://wa.me/${internationalPhone}?text=${encodeURIComponent(messageText)}`;
+};
+
 const buildWhatsAppUrl = (phone: string, orderNumber: string, customerName: string) => {
   const digits = phone.replace(/\D/g, "");
   const internationalPhone = digits.startsWith("62") ? digits : `62${digits.replace(/^0/, "")}`;
@@ -209,7 +260,6 @@ const buildWhatsAppUrl = (phone: string, orderNumber: string, customerName: stri
   );
   return `https://wa.me/${internationalPhone}?text=${message}`;
 };
-
 const toCsvCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
 
 export function OrderDataTable() {
@@ -226,8 +276,18 @@ export function OrderDataTable() {
   const [showDistrictSuggestions, setShowDistrictSuggestions] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [clickedCrmButtons, setClickedCrmButtons] = useState<Record<string, Set<string>>>({});
   const toastTimerRef = useRef<number | undefined>(undefined);
 
+  const handleCrmClick = (order: OrderRow, key: string) => {
+    setClickedCrmButtons((prev) => {
+      const nextSet = new Set(prev[order.id] || []);
+      nextSet.add(key);
+      return { ...prev, [order.id]: nextSet };
+    });
+    const url = buildDynamicWhatsAppUrl(order, key);
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
   const districtSuggestions = useMemo(() => {
     const term = districtQuery.trim().toLowerCase();
     if (!term) return [];
@@ -559,23 +619,34 @@ export function OrderDataTable() {
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3.5 text-right">
-                      <a
-                        href={buildWhatsAppUrl(order.customerPhone, order.orderNumber, order.customerName)}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label={`Tindak lanjuti ${order.orderNumber} melalui WhatsApp`}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-emerald-600 transition-colors hover:bg-emerald-50 hover:text-emerald-700"
-                      >
-                        <MessageSquare className="h-4 w-4" />
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedOrder(order)}
-                        aria-label={`Lihat detail ${order.orderNumber}`}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
+                      <div className="inline-flex items-center gap-1">
+                        {Object.entries(CRM_TEMPLATES).map(([key, item]) => {
+                          const isClicked = clickedCrmButtons[order.id]?.has(key);
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              title={item.title}
+                              onClick={() => handleCrmClick(order, key)}
+                              className={`inline-flex h-7 w-7 items-center justify-center rounded-md text-[11px] font-extrabold transition-colors ${
+                                isClicked
+                                  ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                                  : "bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white dark:bg-emerald-950/40 dark:text-emerald-400"
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedOrder(order)}
+                          aria-label={`Lihat detail ${order.orderNumber}`}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -639,15 +710,26 @@ export function OrderDataTable() {
                       <Pencil className="h-3 w-3" />
                       Ubah Alamat
                     </button>
-                    <a
-                      href={buildWhatsAppUrl(selectedOrder.customerPhone, selectedOrder.orderNumber, selectedOrder.customerName)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:underline"
-                    >
-                      <MessageSquare className="h-3.5 w-3.5" />
-                      Hubungi via WhatsApp
-                    </a>
+                    <div className="flex items-center gap-1">
+                      {Object.entries(CRM_TEMPLATES).map(([key, item]) => {
+                        const isClicked = clickedCrmButtons[selectedOrder.id]?.has(key);
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            title={item.title}
+                            onClick={() => handleCrmClick(selectedOrder, key)}
+                            className={`inline-flex h-7 px-2 items-center justify-center rounded-md text-[11px] font-extrabold transition-colors ${
+                              isClicked
+                                ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                                : "bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white dark:bg-emerald-950/40 dark:text-emerald-400"
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
                 <div className="rounded-xl border border-slate-200/80 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/60">

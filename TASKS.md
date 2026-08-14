@@ -9,7 +9,7 @@
 
 ---
 
-## Parallel Execution Slices
+## Completed Slices (v2 Base Foundation)
 
 ### Slice 1: Sales & Orders Management (`/admin/orders`, `/admin/products`)
 - [X] **Task 1.1: Perfect Orders Management Page**
@@ -67,9 +67,62 @@
 
 ---
 
-## Next Actionable Follow-up Phases & Tasks
+## Actionable Upgrade Slices (Adapted & Enhanced from Zanobyshop/CMSAds Specs)
 
-### Phase 12: Production VPS Coolify Deployment & Domain SSL Handoff (Standby)
+### Slice 7: Public Headless API Layer & Embeddable Widgets
+- [ ] **Task 7.1: Non-Secret Public Storefront Bootstrap API (`GET /api/v1/public/bootstrap`)**
+  - **Requirement:** Provide tenant metadata, active store identity, help phone, active payment channels, COD disabled provinces, and non-secret tracking config (Meta Pixel ID, GTM Container ID, Google Ads Conversion ID/Label, TikTok Pixel ID) to dynamic headless storefronts without leaking CAPI or provider credentials.
+  - **Done when:** `pnpm test` passes and `GET /api/v1/public/bootstrap?tenantId=...` returns validated non-secret JSON payload.
+
+- [ ] **Task 7.2: Canonical Public Product Catalog Read API (`GET /api/v1/public/products`, `GET /api/v1/public/products/:slug`)**
+  - **Requirement:** Serve dynamic catalog facts (products, variants, IDR pricing, stock, SKU/GTIN, active status, media) to dynamic external storefronts using canonical product IDs for ad tracking alignment.
+  - **Done when:** `pnpm test` passes and public product endpoints return active catalog facts with variant details.
+
+- [ ] **Task 7.3: Dynamic Storefront Form Config Gateway (`GET /api/v1/public/form-config`)**
+  - **Requirement:** Resolve 1-step COD, 2-step hybrid, and lead form contracts with canonical product selection, warehouse origin, courier rates estimation, and regional COD eligibility.
+  - **Done when:** `pnpm test` passes and form config endpoint returns structured form schema with pricing and logistics boundaries.
+
+- [ ] **Task 7.4: Embeddable Form Widget & Iframe Gateway (`<dotads-form>` / `/embed/form`)**
+  - **Requirement:** Provide embeddable form script and iframe endpoint `/embed/form` with height postMessage sync, CSRF/Turnstile protection, and parent window payment/thanks redirection.
+  - **Done when:** Embeddable form widget renders inside external HTML page and handles cross-origin height sync and submit navigation cleanly.
+
+### Slice 8: Advanced Conversion Signal Engine & Attribution Preservation
+- [ ] **Task 8.1: Meta CAPI Advanced Matching & Purchase Deduplication Boundary**
+  - **Requirement:** Normalize and SHA-256 hash customer identifiers (`ph`, `fn`, `ln`, `external_id`), preserve raw `_fbp` and `_fbc` cookies, and ensure browser Pixel Purchase and server CAPI Purchase use exact matching `event_id` (`Purchase_` + order ID).
+  - **Done when:** `pnpm test` passes and Meta outbox events pass validation with SHA-256 hashed matching fields.
+
+- [ ] **Task 8.2: Google Ads Enhanced Conversions & Click-ID Attribution Preservation**
+  - **Requirement:** Capture `gclid`, `gbraid`, `wbraid` in session cookies (90-day retention), attach them to order transactions, and format Enhanced Conversion payloads (SHA-256 hashed phone/email/name) for Google Ads API.
+  - **Done when:** `pnpm test` passes and order persistence retains click IDs and generates Google Enhanced Conversion payloads.
+
+- [ ] **Task 8.3: TikTok Ads Signal Engine Integration (TikTok Pixel & Events API v2)**
+  - **Requirement:** Capture `ttclid` cookie and format Events API v2 payloads with SHA-256 hashed customer identifiers for server-side purchase signals.
+  - **Done when:** `pnpm test` passes and TikTok Events API outbox dispatches qualifying orders.
+
+### Slice 9: Provider Hardening (Mengantar Logistics & AutoLaris Gateway)
+- [ ] **Task 9.1: Mengantar Real-Time Receiver Risk Scoring (`/getReceiverScoreByNumberUser`)**
+  - **Requirement:** Execute receiver delivery history lookup on checkout in background (`waitUntil`) without blocking submission; compute RTS risk (Hijau/Kuning/Merah, score 0-100) and expose courier history breakdown in `/admin/orders/[id]`.
+  - **Done when:** Order detail renders provider courier delivery breakdown and RTS risk badge.
+
+- [ ] **Task 9.2: Mengantar Sequential Order Dispatch & Webhook Lifecycle Sync**
+  - **Requirement:** Implement sequential order push to Mengantar `/order` endpoint, avoid parallel calls, handle `cnote_no` (waybill) assignment, and process webhook updates (`/api/webhooks/mengantar`) for tracking status (`IN_TRANSIT`, `DELIVERED`, `RTS`).
+  - **Done when:** `pnpm test` passes and webhook callbacks update order tracking history idempotently.
+
+- [ ] **Task 9.3: AutoLaris HMAC-SHA256 Signature Verification & Ledger Reconciliation**
+  - **Requirement:** Verify `x-autolaris-signature` header on webhooks using constant-time comparison, reconcile payment status idempotently, and update double-entry finance ledger.
+  - **Done when:** `pnpm test` passes and invalid signature webhooks are rejected with HTTP 400.
+
+### Slice 10: WhatsApp CRM Action Group & Dynamic Template Engine
+- [ ] **Task 10.1: Touch-friendly WhatsApp CRM Action Buttons & Dynamic Template Engine**
+  - **Requirement:** Refactor WhatsApp follow-up controls in `OrdersTable` and `OrderDetail` into compact styled buttons (`W`, `D`, `F1`–`F5`, `P`, `C`, `U`) with state persistence (turning clicked buttons to dark slate `#0f172a`), and dynamic template variable replacement (`{{nama}}`, `{{wa}}`, `{{alamat}}`, `{{kecamatan}}`, `{{inv}}`, `{{produk}}`, `{{ongkir}}`, `{{total}}`, `{{resi}}`, `{{kurir}}`).
+  - **Done when:** Operator clicking CRM action button opens pre-filled `wa.me/62...` link and button persists clicked state.
+
+### Slice 11: System Maintenance & Stale Order Cleanup Crons
+- [ ] **Task 11.1: Automated Stale/Unpaid Order Cleanup Cron & Manual Order Purge API**
+  - **Requirement:** Implement scheduled worker job (`DELETE /api/v1/admin/orders/cleanup`) to clean unpaid or abandoned orders older than 7 days from `orders` and `order_items` tables, and support manual single/bulk order deletion in `/admin/orders`.
+  - **Done when:** `pnpm test` passes and cleanup endpoint successfully purges abandoned orders older than 7 days.
+
+### Slice 12: Production VPS Coolify Deployment & Domain SSL Handoff (Standby)
 - [ ] **Task 12.1: Coolify Service Provisioning & Production Environment Deployment**
   - **Requirement:** Deploy production containers to VPS via Coolify when user authorizes remote deployment.
   - **Done when:** Live domain endpoints return HTTP 200 OK with SSL certificates.
