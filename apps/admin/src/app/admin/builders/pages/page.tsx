@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Layers, Plus, Settings, Type, Image as ImageIcon, Layout, MoveUp, MoveDown, Trash2, Eye, Save, Smartphone, Monitor, Code, Check, X, Copy, Sparkles, CheckCircle2 } from "lucide-react";
+import { Layers, Plus, Type, Image as ImageIcon, Layout, MoveUp, MoveDown, Trash2, Save, Smartphone, Monitor, Code, Check, X, Copy, Sparkles, CheckCircle2, Upload } from "lucide-react";
 
-type SectionType = "HERO" | "FEATURES" | "TESTIMONIALS" | "CTA" | "FORM_EMBED" | "CUSTOM_HTML";
+type SectionType = "HERO" | "FEATURES" | "TESTIMONIALS" | "FORM_EMBED";
 
 interface PageSection {
   id: string;
@@ -16,6 +16,8 @@ export default function PagesBuilderPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [deviceView, setDeviceView] = useState<"desktop" | "mobile">("mobile");
   const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importData, setImportData] = useState("");
   const [copied, setCopied] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -72,6 +74,22 @@ export default function PagesBuilderPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleImport = () => {
+    try {
+      const parsed = JSON.parse(importData);
+      if (Array.isArray(parsed)) {
+        setSections(parsed);
+        setImportModalOpen(false);
+        setImportData("");
+        showNotification("Skema JSON berhasil diimpor!");
+      } else {
+        alert("Format JSON tidak valid. Harap masukkan array skema yang benar.");
+      }
+    } catch (e) {
+      alert("Format JSON tidak valid. Pastikan format penulisan benar.");
+    }
+  };
+
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col -m-6 relative">
       {/* Toast Notification */}
@@ -89,8 +107,8 @@ export default function PagesBuilderPage() {
             <Layers className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-sm font-extrabold text-slate-900 dark:text-slate-100 leading-tight">Interactive Landing Page Builder</h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">DotAds Visual Block Canvas</p>
+            <h1 className="text-sm font-extrabold text-slate-900 dark:text-slate-100 leading-tight">Pembuat Halaman Pendaratan (Landing Page) Interaktif</h1>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kanvas Visual Block DotAds</p>
           </div>
         </div>
         
@@ -106,7 +124,7 @@ export default function PagesBuilderPage() {
             <button 
               onClick={() => setDeviceView("mobile")}
               className={`p-1.5 rounded-md ${deviceView === 'mobile' ? 'bg-white dark:bg-slate-700 shadow-2xs text-indigo-600 dark:text-indigo-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}`}
-              title="Tampilan Mobile"
+              title="Tampilan Seluler"
             >
               <Smartphone className="w-4 h-4" />
             </button>
@@ -115,11 +133,18 @@ export default function PagesBuilderPage() {
           <div className="h-6 w-px bg-slate-200 dark:bg-slate-800"></div>
 
           <button 
+            onClick={() => setImportModalOpen(true)}
+            className="text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-3 py-2 rounded-xl transition-colors border border-slate-200 dark:border-slate-700 flex items-center space-x-1.5"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>Impor JSON</span>
+          </button>
+          <button 
             onClick={() => setExportModalOpen(true)}
             className="text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-3 py-2 rounded-xl transition-colors border border-slate-200 dark:border-slate-700 flex items-center space-x-1.5"
           >
             <Code className="w-3.5 h-3.5" />
-            <span>Export JSON</span>
+            <span>Ekspor JSON</span>
           </button>
           <button 
             onClick={handleSave}
@@ -156,7 +181,7 @@ export default function PagesBuilderPage() {
                     <Type className="w-3.5 h-3.5 text-indigo-500" /> Fitur & Keunggulan
                   </button>
                   <button onClick={() => addSection("TESTIMONIALS", "Ulasan Pelanggan")} className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center gap-2">
-                    <ImageIcon className="w-3.5 h-3.5 text-indigo-500" /> Testimoni & Review
+                    <ImageIcon className="w-3.5 h-3.5 text-indigo-500" /> Testimoni & Ulasan
                   </button>
                   <button onClick={() => addSection("FORM_EMBED", "Embed Form Checkout COD")} className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center gap-2">
                     <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> Form Checkout COD
@@ -249,7 +274,7 @@ export default function PagesBuilderPage() {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in duration-200">
             <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Skema JSON Landing Page</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Ekspor Skema JSON Halaman</h3>
               <button onClick={() => setExportModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
                 <X className="w-5 h-5" />
               </button>
@@ -269,6 +294,43 @@ export default function PagesBuilderPage() {
               >
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 <span>{copied ? "Tersalin!" : "Salin ke Clipboard"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* JSON Schema Import Modal */}
+      {importModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Impor Skema JSON Halaman</h3>
+              <button onClick={() => setImportModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 bg-slate-50 dark:bg-slate-950">
+              <p className="text-xs text-slate-500 mb-4">Paste kode JSON di bawah ini untuk menimpa tata letak (layout) halaman saat ini.</p>
+              <textarea
+                rows={8}
+                value={importData}
+                onChange={(e) => setImportData(e.target.value)}
+                placeholder="[ { &quot;id&quot;: &quot;sec_1&quot;, &quot;type&quot;: &quot;HERO&quot;, ... } ]"
+                className="w-full text-xs text-slate-700 dark:text-slate-300 font-mono bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+              />
+            </div>
+            <div className="p-5 border-t border-slate-100 dark:border-slate-800 flex justify-end space-x-3 bg-white dark:bg-slate-900">
+              <button onClick={() => setImportModalOpen(false)} className="px-5 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors">
+                Batal
+              </button>
+              <button 
+                onClick={handleImport}
+                disabled={!importData.trim()}
+                className="px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors flex items-center space-x-2 shadow-xs"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Impor Layout</span>
               </button>
             </div>
           </div>

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { MessageSquare, Save, CheckCircle2, Sparkles, Send, Copy, Check } from "lucide-react";
+import { useRef, useState } from "react";
+import { Check, CheckCircle2, MessageSquare, Save, Sparkles } from "lucide-react";
 
 type TemplateType = "ORDER_CONFIRMATION" | "SHIPPING_UPDATE" | "PAYMENT_REMINDER";
 
@@ -13,11 +13,12 @@ interface Template {
 }
 
 const CRM_VARIABLES = [
-  { label: "Nama Pelanggan", key: "{customerName}" },
-  { label: "Nomor Pesanan", key: "{orderNumber}" },
-  { label: "Ekspedisi Kurir", key: "{courier}" },
-  { label: "Nomor Resi", key: "{waybill}" },
-  { label: "Total Transaksi", key: "{totalAmount}" },
+  { label: "Nama pelanggan", key: "{customerName}" },
+  { label: "Nomor pesanan", key: "{orderNumber}" },
+  { label: "Nama toko", key: "{storeName}" },
+  { label: "Jasa pengiriman", key: "{courier}" },
+  { label: "Nomor resi", key: "{waybill}" },
+  { label: "Total transaksi", key: "{totalAmount}" },
 ];
 
 export default function CRMSettingsPage() {
@@ -28,25 +29,26 @@ export default function CRMSettingsPage() {
   const [templates, setTemplates] = useState<Record<TemplateType, Template>>({
     ORDER_CONFIRMATION: {
       type: "ORDER_CONFIRMATION",
-      label: "Konfirmasi Pesanan COD Baru",
-      content: "Halo Kak {customerName},\n\nTerima kasih telah memesan produk kami! Pesanan Anda dengan No. Pesanan *{orderNumber}* senilai *{totalAmount}* telah kami terima dan sedang diproses.\n\nMohon konfirmasi alamat Anda apakah sudah benar.",
+      label: "Konfirmasi pesanan COD baru",
+      content: "Halo Kak {customerName},\n\nTerima kasih telah berbelanja di {storeName}! Pesanan Anda dengan nomor *{orderNumber}* senilai *{totalAmount}* telah kami terima dan sedang diproses.\n\nMohon konfirmasi apakah alamat pengirimannya sudah benar.",
       enabled: true,
     },
     SHIPPING_UPDATE: {
       type: "SHIPPING_UPDATE",
-      label: "Update Resi & Pengiriman Kurir",
-      content: "Halo Kak {customerName},\n\nKabar gembira! Paket pesanan *{orderNumber}* telah dikirim melalui kurir *{courier}* dengan No. Resi *{waybill}*.\n\nSilakan cek status pengiriman secara berkala.",
+      label: "Pembaruan resi & pengiriman",
+      content: "Halo Kak {customerName},\n\nKabar baik! Paket pesanan *{orderNumber}* dari {storeName} telah dikirim melalui *{courier}* dengan nomor resi *{waybill}*.\n\nSilakan cek status pengiriman secara berkala.",
       enabled: true,
     },
     PAYMENT_REMINDER: {
       type: "PAYMENT_REMINDER",
-      label: "Pengingat Pembayaran QRIS / VA",
-      content: "Halo Kak {customerName},\n\nPembayaran untuk No. Pesanan *{orderNumber}* senilai *{totalAmount}* menunggu penyelesaian.\n\nSilakan lakukan pembayaran sebelum batas waktu berakhir.",
+      label: "Pengingat pembayaran QRIS / VA",
+      content: "Halo Kak {customerName},\n\nPembayaran pesanan *{orderNumber}* di {storeName} senilai *{totalAmount}* masih menunggu penyelesaian.\n\nSilakan selesaikan pembayaran sebelum batas waktunya berakhir.",
       enabled: true,
     },
   });
 
   const [activeTab, setActiveTab] = useState<TemplateType>("ORDER_CONFIRMATION");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const showNotification = (msg: string) => {
     setToastMessage(msg);
@@ -71,17 +73,25 @@ export default function CRMSettingsPage() {
     });
   };
 
-  const insertVariable = (varKey: string) => {
+  const insertVariable = (variableKey: string) => {
+    const textarea = textareaRef.current;
     const currentText = templates[activeTab].content;
+    const selectionStart = textarea?.selectionStart ?? currentText.length;
+    const selectionEnd = textarea?.selectionEnd ?? currentText.length;
+    const nextText = `${currentText.slice(0, selectionStart)}${variableKey}${currentText.slice(selectionEnd)}`;
     setTemplates({
       ...templates,
       [activeTab]: {
         ...templates[activeTab],
-        content: currentText + " " + varKey,
+        content: nextText,
       },
     });
-    setCopiedKey(varKey);
-    setTimeout(() => setCopiedKey(null), 1500);
+    setCopiedKey(variableKey);
+    window.setTimeout(() => {
+      setCopiedKey(null);
+      textarea?.focus();
+      textarea?.setSelectionRange(selectionStart + variableKey.length, selectionStart + variableKey.length);
+    }, 0);
   };
 
   const currentTpl = templates[activeTab];
@@ -100,10 +110,10 @@ export default function CRMSettingsPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
-            Pengaturan Template Pesan WhatsApp CRM
+            Pengaturan Pesan WhatsApp CRM
           </h1>
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
-            Atur templat notifikasi WhatsApp otomatis untuk konfirmasi COD, update resi kurir, dan pengingat bayar
+            Atur pesan WhatsApp otomatis untuk konfirmasi COD, pembaruan resi, dan pengingat pembayaran.
           </p>
         </div>
 
@@ -165,7 +175,7 @@ export default function CRMSettingsPage() {
             {/* Variable Chips */}
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-2">
-                Klik Variabel untuk Sisipkan ke Pesan:
+                Sisipkan variabel dinamis
               </label>
               <div className="flex flex-wrap gap-2">
                 {CRM_VARIABLES.map((v) => (
@@ -187,7 +197,8 @@ export default function CRMSettingsPage() {
                 Isi Draf Pesan WhatsApp
               </label>
               <textarea
-                rows={6}
+                ref={textareaRef}
+                rows={7}
                 value={currentTpl.content}
                 onChange={(e) => handleTemplateChange(e.target.value)}
                 className="w-full px-3 py-2.5 text-xs font-medium border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 leading-relaxed font-sans"
@@ -199,17 +210,18 @@ export default function CRMSettingsPage() {
           <div className="bg-emerald-950/20 border border-emerald-900/30 rounded-xl p-6 shadow-inner">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-4">
               <MessageSquare className="w-4 h-4" />
-              <span>Pratinjau Gelembung Pesan WhatsApp Pelanggan</span>
+              <span>Pratinjau pesan pelanggan</span>
             </div>
 
             <div className="max-w-md bg-emerald-100 dark:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 text-slate-900 dark:text-slate-100 rounded-2xl rounded-tl-none p-4 text-xs leading-relaxed shadow-sm">
               <div className="whitespace-pre-wrap">
                 {currentTpl.content
-                  .replace("{customerName}", "Budi Santoso")
-                  .replace("{orderNumber}", "ORD_991021")
-                  .replace("{courier}", "JNE Express")
-                  .replace("{waybill}", "MNTR-8899211")
-                  .replace("{totalAmount}", "Rp 270.000")}
+                  .replaceAll("{customerName}", "Budi Santoso")
+                  .replaceAll("{orderNumber}", "ORD-991021")
+                  .replaceAll("{storeName}", "Alpha Store")
+                  .replaceAll("{courier}", "JNE Express")
+                  .replaceAll("{waybill}", "MNTR-8899211")
+                  .replaceAll("{totalAmount}", "Rp270.000")}
               </div>
               <div className="text-[10px] text-emerald-700 dark:text-emerald-300 text-right font-medium mt-2">
                 10:15 ✔✔

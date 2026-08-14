@@ -1,445 +1,721 @@
 "use client";
 
-import React, { useState } from "react";
-import { Package, Plus, Search, Tag, Barcode, CheckCircle2, AlertCircle, Edit, Trash2, X, Image as ImageIcon, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
+import {
+  Barcode,
+  CheckCircle2,
+  Edit,
+  Image as ImageIcon,
+  Package,
+  Plus,
+  RefreshCw,
+  Search,
+  Sparkles,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
+
+type ProductStatus = "active" | "draft" | "archived";
 
 interface ProductItem {
   id: string;
   name: string;
   slug: string;
+  sku: string;
   gtin: string;
-  priceFormatted: string;
+  weightGrams: number;
+  stockQuantity: number;
   priceValue: number;
-  compareAtPriceFormatted?: string;
   compareAtPriceValue?: number;
-  status: "active" | "draft" | "archived";
-  inventory: number;
+  status: ProductStatus;
   imageUrl?: string;
+}
+
+interface ProductFormState {
+  name: string;
+  slug: string;
+  sku: string;
+  gtin: string;
+  weightGrams: number;
+  stockQuantity: number;
+  priceValue: number;
+  compareAtPriceValue: number;
+  status: ProductStatus;
+  imageUrl: string;
 }
 
 const INITIAL_PRODUCTS: ProductItem[] = [
   {
     id: "prod_1",
-    name: "Alpha Premium Gadget",
-    slug: "alpha-premium-gadget",
+    name: "Gawai Premium Alpha",
+    slug: "gawai-premium-alpha",
+    sku: "DTA-GPA-001",
     gtin: "8991234567890",
-    priceFormatted: "Rp 270.000",
+    weightGrams: 750,
+    stockQuantity: 142,
     priceValue: 270000,
-    compareAtPriceFormatted: "Rp 499.000",
     compareAtPriceValue: 499000,
     status: "active",
-    inventory: 142,
     imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
   },
   {
     id: "prod_2",
-    name: "Ultra Ergonomic Pillow",
-    slug: "ultra-ergonomic-pillow",
+    name: "Bantal Ergonomis Ultra",
+    slug: "bantal-ergonomis-ultra",
+    sku: "DTA-BEU-002",
     gtin: "8991234567891",
-    priceFormatted: "Rp 185.000",
+    weightGrams: 1200,
+    stockQuantity: 89,
     priceValue: 185000,
-    compareAtPriceFormatted: "Rp 250.000",
     compareAtPriceValue: 250000,
     status: "active",
-    inventory: 89,
     imageUrl: "https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?w=600",
   },
   {
     id: "prod_3",
-    name: "Smart Watch V2 - Fitness Edition",
-    slug: "smart-watch-v2",
+    name: "Jam Pintar V2 Edisi Kebugaran",
+    slug: "jam-pintar-v2",
+    sku: "DTA-JPV2-003",
     gtin: "8991234567892",
-    priceFormatted: "Rp 450.000",
+    weightGrams: 350,
+    stockQuantity: 0,
     priceValue: 450000,
     status: "draft",
-    inventory: 0,
     imageUrl: "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=600",
   },
 ];
 
-const formatRupiah = (val: number) =>
-  new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(val);
+const EMPTY_FORM: ProductFormState = {
+  name: "",
+  slug: "",
+  sku: "",
+  gtin: "",
+  weightGrams: 500,
+  stockQuantity: 0,
+  priceValue: 0,
+  compareAtPriceValue: 0,
+  status: "active",
+  imageUrl: "",
+};
+
+const STATUS_LABELS: Record<ProductStatus, string> = {
+  active: "Aktif",
+  draft: "Draf",
+  archived: "Diarsipkan",
+};
+
+const IDR_FORMATTER = new Intl.NumberFormat("id-ID", {
+  style: "currency",
+  currency: "IDR",
+  maximumFractionDigits: 0,
+});
+
+const createSlug = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+const generateGtin13 = () => {
+  const random = new Uint32Array(1);
+  crypto.getRandomValues(random);
+  const base = `899${String(random[0] % 1_000_000_000).padStart(9, "0")}`;
+  const weightedSum = base
+    .split("")
+    .reduce((sum, digit, index) => sum + Number(digit) * (index % 2 === 0 ? 1 : 3), 0);
+  const checkDigit = (10 - (weightedSum % 10)) % 10;
+  return `${base}${checkDigit}`;
+};
 
 export default function AdminProductsPage() {
-  const [searchTerm, setSearchTerm] = useState("");
   const [products, setProducts] = useState<ProductItem[]>(INITIAL_PRODUCTS);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<ProductItem | null>(null);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [imageDraft, setImageDraft] = useState("");
+  const [formData, setFormData] = useState<ProductFormState>(EMPTY_FORM);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | undefined>(undefined);
 
-  // Form State
-  const [formData, setFormData] = useState({
-    name: "",
-    slug: "",
-    gtin: "",
-    priceValue: 270000,
-    compareAtPriceValue: 0,
-    inventory: 100,
-    status: "active" as "active" | "draft" | "archived",
-    imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
-  });
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
-  };
-
-  const filteredProducts = products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.gtin.includes(searchTerm) ||
-      p.slug.includes(searchTerm)
+  useEffect(
+    () => () => {
+      window.clearTimeout(toastTimerRef.current);
+    },
+    [],
   );
 
+  const filteredProducts = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return products;
+
+    return products.filter(
+      (product) =>
+        product.name.toLowerCase().includes(query) ||
+        product.sku.toLowerCase().includes(query) ||
+        product.gtin.includes(query),
+    );
+  }, [products, searchTerm]);
+
+  const showToast = (message: string) => {
+    window.clearTimeout(toastTimerRef.current);
+    setToastMessage(message);
+    toastTimerRef.current = window.setTimeout(() => setToastMessage(null), 3000);
+  };
+
   const openAddModal = () => {
-    setEditingProduct(null);
+    setEditingProductId(null);
+    setFormData({ ...EMPTY_FORM, gtin: generateGtin13() });
+    setProductModalOpen(true);
+  };
+
+  const openEditModal = (product: ProductItem) => {
+    setEditingProductId(product.id);
     setFormData({
-      name: "",
-      slug: "",
-      gtin: `899${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-      priceValue: 250000,
-      compareAtPriceValue: 350000,
-      inventory: 100,
-      status: "active",
-      imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
+      name: product.name,
+      slug: product.slug,
+      sku: product.sku,
+      gtin: product.gtin,
+      weightGrams: product.weightGrams,
+      stockQuantity: product.stockQuantity,
+      priceValue: product.priceValue,
+      compareAtPriceValue: product.compareAtPriceValue ?? 0,
+      status: product.status,
+      imageUrl: product.imageUrl ?? "",
     });
-    setModalOpen(true);
+    setProductModalOpen(true);
   };
 
-  const openEditModal = (prod: ProductItem) => {
-    setEditingProduct(prod);
-    setFormData({
-      name: prod.name,
-      slug: prod.slug,
-      gtin: prod.gtin,
-      priceValue: prod.priceValue,
-      compareAtPriceValue: prod.compareAtPriceValue || 0,
-      inventory: prod.inventory,
-      status: prod.status,
-      imageUrl: prod.imageUrl || "",
-    });
-    setModalOpen(true);
+  const openImageModal = () => {
+    setImageDraft(formData.imageUrl);
+    setImageModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    setProducts((prev) => prev.filter((p) => p.id !== id));
-    showToast("Produk berhasil dihapus dari katalog.");
-  };
+  const handleImageFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name.trim()) return;
-
-    const formattedPrice = formatRupiah(formData.priceValue);
-    const formattedCompare = formData.compareAtPriceValue ? formatRupiah(formData.compareAtPriceValue) : undefined;
-    const generatedSlug = formData.slug || formData.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-
-    if (editingProduct) {
-      setProducts((prev) =>
-        prev.map((p) =>
-          p.id === editingProduct.id
-            ? {
-                ...p,
-                name: formData.name,
-                slug: generatedSlug,
-                gtin: formData.gtin,
-                priceValue: formData.priceValue,
-                priceFormatted: formattedPrice,
-                compareAtPriceValue: formData.compareAtPriceValue || undefined,
-                compareAtPriceFormatted: formattedCompare,
-                inventory: formData.inventory,
-                status: formData.status,
-                imageUrl: formData.imageUrl,
-              }
-            : p
-        )
-      );
-      showToast("Produk berhasil diperbarui!");
-    } else {
-      const newProd: ProductItem = {
-        id: `prod_${Date.now()}`,
-        name: formData.name,
-        slug: generatedSlug,
-        gtin: formData.gtin,
-        priceValue: formData.priceValue,
-        priceFormatted: formattedPrice,
-        compareAtPriceValue: formData.compareAtPriceValue || undefined,
-        compareAtPriceFormatted: formattedCompare,
-        inventory: formData.inventory,
-        status: formData.status,
-        imageUrl: formData.imageUrl,
-      };
-      setProducts((prev) => [newProd, ...prev]);
-      showToast("Produk baru berhasil ditambahkan ke katalog!");
+    if (!file.type.startsWith("image/")) {
+      showToast("Pilih berkas gambar yang valid.");
+      event.target.value = "";
+      return;
     }
 
-    setModalOpen(false);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") setImageDraft(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const slug = createSlug(formData.slug || formData.name);
+    const nextProduct: ProductItem = {
+      id: editingProductId ?? `prod_${Date.now()}`,
+      name: formData.name.trim(),
+      slug,
+      sku: formData.sku.trim().toUpperCase(),
+      gtin: formData.gtin.trim(),
+      weightGrams: formData.weightGrams,
+      stockQuantity: formData.stockQuantity,
+      priceValue: formData.priceValue,
+      compareAtPriceValue: formData.compareAtPriceValue || undefined,
+      status: formData.status,
+      imageUrl: formData.imageUrl || undefined,
+    };
+
+    if (editingProductId) {
+      setProducts((current) =>
+        current.map((product) => (product.id === editingProductId ? nextProduct : product)),
+      );
+      showToast("Produk berhasil diperbarui.");
+    } else {
+      setProducts((current) => [nextProduct, ...current]);
+      showToast("Produk baru berhasil ditambahkan.");
+    }
+
+    setProductModalOpen(false);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteCandidate) return;
+    setProducts((current) => current.filter((product) => product.id !== deleteCandidate.id));
+    setDeleteCandidate(null);
+    showToast("Produk berhasil dihapus dari katalog.");
   };
 
   return (
     <div className="space-y-6 pb-8">
-      {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-5 right-5 z-50 flex items-center space-x-2 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-2xl animate-bounce">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+        <div
+          role="status"
+          className="fixed right-5 top-5 z-[70] flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-xs font-semibold text-white shadow-2xl"
+        >
+          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <div className="flex items-center space-x-2 text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">
-            <Package className="w-4 h-4" />
-            <span>Katalog & Inventaris</span>
+          <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600">
+            <Package className="h-4 w-4" />
+            <span>Katalog dan inventaris</span>
           </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Produk & Form Meta Ads</h1>
-          <p className="text-sm font-medium text-slate-500 mt-1">Kelola katalog produk, barcode GTIN, harga promo, dan stok untuk formulir checkout instan</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Produk</h1>
+          <p className="mt-1 text-sm font-medium text-slate-500">
+            Kelola data produk, barcode GTIN, harga, berat, dan stok dalam satu tempat.
+          </p>
         </div>
 
         <button
+          type="button"
           onClick={openAddModal}
-          className="inline-flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-xs transition-colors"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-indigo-700"
         >
-          <Plus className="w-4 h-4" />
-          <span>Tambah Produk Baru</span>
+          <Plus className="h-4 w-4" />
+          Tambah produk
         </button>
       </div>
 
-      {/* Filter & Table Container */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-6">
-        {/* Search */}
-        <div className="flex items-center space-x-3">
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Cari nama produk, GTIN barcode, atau slug URL..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-            />
-          </div>
+      <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            aria-label="Cari produk"
+            placeholder="Cari nama produk, SKU, atau GTIN..."
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+          />
         </div>
 
-        {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full border-collapse text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-500 font-semibold uppercase text-[11px] tracking-wider">
-                <th className="py-3 px-3">Produk</th>
-                <th className="py-3 px-3">GTIN Barcode</th>
-                <th className="py-3 px-3">Harga COD / Online</th>
-                <th className="py-3 px-3">Stok Inventaris</th>
-                <th className="py-3 px-3">Status</th>
-                <th className="py-3 px-3 text-right">Aksi</th>
+              <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                <th className="px-3 py-3">Produk</th>
+                <th className="px-3 py-3">SKU dan GTIN</th>
+                <th className="px-3 py-3">Berat</th>
+                <th className="px-3 py-3 text-right">Harga</th>
+                <th className="px-3 py-3">Stok</th>
+                <th className="px-3 py-3">Status</th>
+                <th className="px-3 py-3 text-right">Tindakan</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="py-3 px-3">
-                    <div className="flex items-center space-x-3">
+                <tr key={product.id} className="transition-colors hover:bg-slate-50/50">
+                  <td className="px-3 py-3">
+                    <div className="flex min-w-52 items-center gap-3">
                       {product.imageUrl ? (
-                        <img src={product.imageUrl} alt={product.name} className="w-9 h-9 rounded-lg object-cover border border-slate-200" />
+                        <img
+                          src={product.imageUrl}
+                          alt={`Gambar ${product.name}`}
+                          className="h-10 w-10 rounded-lg border border-slate-200 object-cover"
+                        />
                       ) : (
-                        <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
-                          <ImageIcon className="w-4 h-4" />
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+                          <ImageIcon className="h-4 w-4" />
                         </div>
                       )}
                       <div>
                         <p className="font-bold text-slate-900">{product.name}</p>
-                        <p className="text-[11px] text-slate-400 font-mono">/{product.slug}</p>
+                        <p className="font-mono text-[11px] text-slate-400">/{product.slug}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="py-3 px-3">
-                    <span className="inline-flex items-center space-x-1 font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded text-slate-700 border border-slate-200">
-                      <Barcode className="w-3 h-3 text-slate-500" />
-                      <span>{product.gtin}</span>
+                  <td className="px-3 py-3">
+                    <p className="font-semibold text-slate-800">{product.sku}</p>
+                    <span className="mt-1 inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-[11px] text-slate-700">
+                      <Barcode className="h-3 w-3 text-slate-500" />
+                      {product.gtin}
                     </span>
                   </td>
-                  <td className="py-3 px-3">
-                    <p className="font-bold text-slate-900">{product.priceFormatted}</p>
-                    {product.compareAtPriceFormatted && (
+                  <td className="px-3 py-3 font-semibold text-slate-700">
+                    {product.weightGrams.toLocaleString("id-ID")} gram
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    <p className="font-bold text-slate-900">{IDR_FORMATTER.format(product.priceValue)}</p>
+                    {product.compareAtPriceValue && (
                       <p className="text-[10px] text-slate-400 line-through">
-                        {product.compareAtPriceFormatted}
+                        {IDR_FORMATTER.format(product.compareAtPriceValue)}
                       </p>
                     )}
                   </td>
-                  <td className="py-3 px-3">
+                  <td className="px-3 py-3">
                     <span
                       className={`font-semibold ${
-                        product.inventory > 10 ? "text-emerald-700" : "text-rose-600"
+                        product.stockQuantity > 10 ? "text-emerald-700" : "text-rose-600"
                       }`}
                     >
-                      {product.inventory} unit
+                      {product.stockQuantity.toLocaleString("id-ID")} unit
                     </span>
                   </td>
-                  <td className="py-3 px-3">
+                  <td className="px-3 py-3">
                     <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                      className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${
                         product.status === "active"
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : "bg-amber-50 text-amber-700 border-amber-200"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : product.status === "draft"
+                            ? "border-amber-200 bg-amber-50 text-amber-700"
+                            : "border-slate-200 bg-slate-100 text-slate-600"
                       }`}
                     >
-                      {product.status.toUpperCase()}
+                      {STATUS_LABELS[product.status]}
                     </span>
                   </td>
-                  <td className="py-3 px-3 text-right space-x-1">
+                  <td className="px-3 py-3 text-right">
                     <button
+                      type="button"
                       onClick={() => openEditModal(product)}
-                      className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors"
-                      title="Edit Produk"
+                      aria-label={`Edit ${product.name}`}
+                      className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-indigo-600"
                     >
-                      <Edit className="w-4 h-4" />
+                      <Edit className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => handleDelete(product.id)}
-                      className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                      title="Hapus Produk"
+                      type="button"
+                      onClick={() => setDeleteCandidate(product)}
+                      aria-label={`Hapus ${product.name}`}
+                      className="ml-1 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </td>
                 </tr>
               ))}
+              {filteredProducts.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-3 py-12 text-center text-sm text-slate-500">
+                    Tidak ada produk yang cocok dengan pencarian Anda.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Product Add/Edit Modal */}
-      {modalOpen && (
+      {productModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100">
-              <div className="flex items-center space-x-2">
-                <Sparkles className="w-4 h-4 text-indigo-600" />
-                <h2 className="font-bold text-slate-900 text-base">
-                  {editingProduct ? "Edit Detail Produk" : "Tambah Produk Katalog Baru"}
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="product-modal-title"
+            className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl"
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white p-5">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-indigo-600" />
+                <h2 id="product-modal-title" className="text-base font-bold text-slate-900">
+                  {editingProductId ? "Edit produk" : "Tambah produk baru"}
                 </h2>
               </div>
-              <button onClick={() => setModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
-                <X className="w-5 h-5" />
+              <button
+                type="button"
+                onClick={() => setProductModalOpen(false)}
+                aria-label="Tutup formulir produk"
+                className="rounded-lg p-1 text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleFormSubmit} className="p-5 space-y-4 text-xs font-semibold text-slate-700">
+            <form onSubmit={handleFormSubmit} className="space-y-4 p-5 text-xs font-semibold text-slate-700">
               <div>
-                <label className="block mb-1">Nama Produk</label>
+                <label htmlFor="product-name" className="mb-1 block">Nama produk</label>
                 <input
+                  id="product-name"
                   type="text"
                   required
-                  placeholder="Misal: Alpha Premium Gadget"
+                  placeholder="Contoh: Gawai Premium Alpha"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  onChange={(event) => setFormData((current) => ({ ...current, name: event.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block mb-1">Slug URL</label>
+                  <label htmlFor="product-sku" className="mb-1 block">SKU</label>
                   <input
+                    id="product-sku"
                     type="text"
-                    placeholder="alpha-premium-gadget"
-                    value={formData.slug}
-                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-normal font-mono outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                    required
+                    placeholder="DTA-PRODUK-001"
+                    value={formData.sku}
+                    onChange={(event) => setFormData((current) => ({ ...current, sku: event.target.value }))}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 font-mono font-normal uppercase outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
                 <div>
-                  <label className="block mb-1">GTIN Barcode</label>
+                  <label htmlFor="product-slug" className="mb-1 block">Slug URL</label>
                   <input
+                    id="product-slug"
                     type="text"
-                    required
-                    value={formData.gtin}
-                    onChange={(e) => setFormData({ ...formData, gtin: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-normal font-mono outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                    placeholder="Dibuat otomatis dari nama"
+                    value={formData.slug}
+                    onChange={(event) => setFormData((current) => ({ ...current, slug: event.target.value }))}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 font-mono font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block mb-1">Harga Jual (Rp)</label>
+              <div>
+                <label htmlFor="product-gtin" className="mb-1 block">Barcode GTIN-13</label>
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <input
+                    id="product-gtin"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{13}"
+                    required
+                    value={formData.gtin}
+                    onChange={(event) => setFormData((current) => ({ ...current, gtin: event.target.value.replace(/\D/g, "").slice(0, 13) }))}
+                    className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 font-mono font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFormData((current) => ({ ...current, gtin: generateGtin13() }))}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-indigo-700 transition-colors hover:bg-indigo-100"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Buat GTIN
+                  </button>
+                </div>
+                <p className="mt-1 font-normal text-slate-400">Nomor GTIN dibuat dengan digit pemeriksa yang valid.</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="product-price" className="mb-1 block">Harga jual (IDR)</label>
+                  <input
+                    id="product-price"
                     type="number"
                     required
-                    min="1000"
+                    min="0"
                     step="1000"
                     value={formData.priceValue}
-                    onChange={(e) => setFormData({ ...formData, priceValue: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                    onChange={(event) => setFormData((current) => ({ ...current, priceValue: Number(event.target.value) }))}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
                 <div>
-                  <label className="block mb-1">Harga Coret / Promo (Rp)</label>
+                  <label htmlFor="product-compare-price" className="mb-1 block">Harga sebelum diskon (IDR)</label>
                   <input
+                    id="product-compare-price"
                     type="number"
                     min="0"
                     step="1000"
                     value={formData.compareAtPriceValue}
-                    onChange={(e) => setFormData({ ...formData, compareAtPriceValue: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                    onChange={(event) => setFormData((current) => ({ ...current, compareAtPriceValue: Number(event.target.value) }))}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <div>
-                  <label className="block mb-1">Jumlah Stok (Unit)</label>
+                  <label htmlFor="product-weight" className="mb-1 block">Berat (gram)</label>
                   <input
+                    id="product-weight"
                     type="number"
                     required
-                    min="0"
-                    value={formData.inventory}
-                    onChange={(e) => setFormData({ ...formData, inventory: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                    min="1"
+                    step="1"
+                    value={formData.weightGrams}
+                    onChange={(event) => setFormData((current) => ({ ...current, weightGrams: Number(event.target.value) }))}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
                 <div>
-                  <label className="block mb-1">Status Produk</label>
+                  <label htmlFor="product-stock" className="mb-1 block">Jumlah stok</label>
+                  <input
+                    id="product-stock"
+                    type="number"
+                    required
+                    min="0"
+                    step="1"
+                    value={formData.stockQuantity}
+                    onChange={(event) => setFormData((current) => ({ ...current, stockQuantity: Number(event.target.value) }))}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="product-status" className="mb-1 block">Status produk</label>
                   <select
+                    id="product-status"
                     value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-white"
+                    onChange={(event) => setFormData((current) => ({ ...current, status: event.target.value as ProductStatus }))}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                   >
-                    <option value="active">ACTIVE (Tampil di Form)</option>
-                    <option value="draft">DRAFT (Sembunyi)</option>
-                    <option value="archived">ARCHIVED</option>
+                    <option value="active">Aktif</option>
+                    <option value="draft">Draf</option>
+                    <option value="archived">Diarsipkan</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block mb-1">URL Gambar Produk</label>
-                <input
-                  type="text"
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+                <span className="mb-1 block">Gambar produk</span>
                 <button
                   type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-xs"
+                  onClick={openImageModal}
+                  className="flex w-full items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/40"
+                >
+                  {formData.imageUrl ? (
+                    <img src={formData.imageUrl} alt="Pratinjau gambar produk" className="h-14 w-14 rounded-lg object-cover" />
+                  ) : (
+                    <span className="flex h-14 w-14 items-center justify-center rounded-lg bg-white text-slate-400 shadow-xs">
+                      <ImageIcon className="h-5 w-5" />
+                    </span>
+                  )}
+                  <span>
+                    <span className="block font-bold text-slate-800">Unggah atau pratinjau gambar</span>
+                    <span className="mt-0.5 block font-normal text-slate-500">Pilih berkas gambar atau masukkan URL.</span>
+                  </span>
+                </button>
+              </div>
+
+              <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setProductModalOpen(false)}
+                  className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-xs"
+                  className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700"
                 >
-                  Simpan Produk
+                  {editingProductId ? "Simpan perubahan" : "Tambahkan produk"}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {imageModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="image-modal-title"
+            className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 id="image-modal-title" className="font-bold text-slate-900">Gambar produk</h2>
+                <p className="mt-0.5 text-xs text-slate-500">Unggah gambar dan periksa tampilannya sebelum digunakan.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setImageModalOpen(false)}
+                aria-label="Tutup pratinjau gambar"
+                className="rounded-lg p-1 text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex min-h-56 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+              {imageDraft ? (
+                <img src={imageDraft} alt="Pratinjau gambar yang dipilih" className="max-h-72 w-full object-contain" />
+              ) : (
+                <div className="text-center text-slate-400">
+                  <ImageIcon className="mx-auto h-10 w-10" />
+                  <p className="mt-2 text-xs font-semibold">Belum ada gambar dipilih</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100">
+                <Upload className="h-4 w-4" />
+                Unggah berkas gambar
+                <input type="file" accept="image/*" onChange={handleImageFileChange} className="sr-only" />
+              </label>
+              <div>
+                <label htmlFor="image-url" className="mb-1 block text-xs font-semibold text-slate-700">Atau gunakan URL gambar</label>
+                <input
+                  id="image-url"
+                  type="url"
+                  placeholder="https://contoh.id/gambar-produk.jpg"
+                  value={imageDraft.startsWith("data:") ? "" : imageDraft}
+                  onChange={(event) => setImageDraft(event.target.value)}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4">
+              <button
+                type="button"
+                onClick={() => setImageModalOpen(false)}
+                className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData((current) => ({ ...current, imageUrl: imageDraft }));
+                  setImageModalOpen(false);
+                }}
+                className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700"
+              >
+                Gunakan gambar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteCandidate && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-product-title"
+            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
+          >
+            <div className="flex items-start gap-3">
+              <span className="rounded-xl bg-rose-50 p-2 text-rose-600">
+                <Trash2 className="h-5 w-5" />
+              </span>
+              <div>
+                <h2 id="delete-product-title" className="font-bold text-slate-900">Hapus produk?</h2>
+                <p className="mt-1 text-sm leading-relaxed text-slate-500">
+                  Produk <strong className="text-slate-700">{deleteCandidate.name}</strong> akan dihapus dari katalog. Tindakan ini tidak dapat dibatalkan.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteCandidate(null)}
+                className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700"
+              >
+                Ya, hapus produk
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,22 +1,25 @@
 "use client";
 
-import React, { useState } from "react";
-import { 
-  Search, 
-  Eye, 
-  MapPin, 
-  Truck, 
-  CreditCard, 
-  ShieldAlert, 
-  X, 
-  ChevronRight, 
-  PackageCheck,
-  Download,
-  MessageSquare,
-  Printer,
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
   CheckCircle2,
-  AlertCircle
+  CreditCard,
+  Download,
+  Eye,
+  MapPin,
+  MessageSquare,
+  PackageCheck,
+  Printer,
+  Search,
+  ShieldAlert,
+  Truck,
+  X,
 } from "lucide-react";
+
+export type OrderLifecycleStatus = "PENDING" | "PAID" | "SHIPPED" | "COMPLETED" | "RTS";
+
+type OrderTab = "ALL" | OrderLifecycleStatus;
+type RiskLevel = "green" | "yellow" | "red";
 
 export interface OrderRow {
   id: string;
@@ -26,13 +29,53 @@ export interface OrderRow {
   shippingAddress: string;
   totalMinor: number;
   paymentMethod: string;
-  paymentStatus: string;
-  fulfillmentStatus: string;
+  paymentStatus: "PAID" | "UNPAID";
+  fulfillmentStatus: "UNFULFILLED" | "PICKUP_REQUESTED" | "IN_TRANSIT" | "DELIVERED" | "RTS";
+  lifecycleStatus: OrderLifecycleStatus;
   cnoteNo?: string;
   courierCode?: string;
-  rtsRiskScore?: number;
+  rtsRiskScore: number;
   createdAt: string;
 }
+
+interface RiskBadge {
+  level: RiskLevel;
+  label: "Hijau" | "Kuning" | "Merah";
+  className: string;
+  barClassName: string;
+  advice: string;
+}
+
+const ORDER_TABS: ReadonlyArray<{ value: OrderTab; label: string }> = [
+  { value: "ALL", label: "Semua" },
+  { value: "PENDING", label: "Pending" },
+  { value: "PAID", label: "Paid" },
+  { value: "SHIPPED", label: "Shipped" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "RTS", label: "RTS" },
+];
+
+const LIFECYCLE_LABELS: Record<OrderLifecycleStatus, string> = {
+  PENDING: "Pending",
+  PAID: "Paid",
+  SHIPPED: "Shipped",
+  COMPLETED: "Completed",
+  RTS: "RTS",
+};
+
+const FULFILLMENT_LABELS: Record<OrderRow["fulfillmentStatus"], string> = {
+  UNFULFILLED: "Belum diproses",
+  PICKUP_REQUESTED: "Menunggu penjemputan",
+  IN_TRANSIT: "Dalam pengiriman",
+  DELIVERED: "Terkirim",
+  RTS: "Dikembalikan ke pengirim",
+};
+
+const IDR_FORMATTER = new Intl.NumberFormat("id-ID", {
+  style: "currency",
+  currency: "IDR",
+  maximumFractionDigits: 0,
+});
 
 const SAMPLE_ORDERS: OrderRow[] = [
   {
@@ -45,9 +88,10 @@ const SAMPLE_ORDERS: OrderRow[] = [
     paymentMethod: "COD",
     paymentStatus: "UNPAID",
     fulfillmentStatus: "UNFULFILLED",
+    lifecycleStatus: "PENDING",
     courierCode: "JNE",
     rtsRiskScore: 12,
-    createdAt: "2026-08-14 10:15",
+    createdAt: "14 Agu 2026, 10.15 WIB",
   },
   {
     id: "ord_1002",
@@ -59,10 +103,11 @@ const SAMPLE_ORDERS: OrderRow[] = [
     paymentMethod: "QRIS",
     paymentStatus: "PAID",
     fulfillmentStatus: "DELIVERED",
+    lifecycleStatus: "COMPLETED",
     cnoteNo: "MNTR-8899211",
     courierCode: "SICEPAT",
     rtsRiskScore: 5,
-    createdAt: "2026-08-14 09:30",
+    createdAt: "14 Agu 2026, 09.30 WIB",
   },
   {
     id: "ord_1003",
@@ -73,10 +118,12 @@ const SAMPLE_ORDERS: OrderRow[] = [
     totalMinor: 320000,
     paymentMethod: "COD",
     paymentStatus: "UNPAID",
-    fulfillmentStatus: "UNFULFILLED",
+    fulfillmentStatus: "RTS",
+    lifecycleStatus: "RTS",
+    cnoteNo: "MNTR-8899208",
     courierCode: "J&T",
-    rtsRiskScore: 68,
-    createdAt: "2026-08-14 08:45",
+    rtsRiskScore: 86,
+    createdAt: "14 Agu 2026, 08.45 WIB",
   },
   {
     id: "ord_1004",
@@ -87,256 +134,426 @@ const SAMPLE_ORDERS: OrderRow[] = [
     totalMinor: 450000,
     paymentMethod: "VA BCA",
     paymentStatus: "PAID",
-    fulfillmentStatus: "PICKUP_REQUESTED",
+    fulfillmentStatus: "IN_TRANSIT",
+    lifecycleStatus: "SHIPPED",
     cnoteNo: "MNTR-8899212",
     courierCode: "SAP",
     rtsRiskScore: 2,
-    createdAt: "2026-08-14 07:15",
+    createdAt: "14 Agu 2026, 07.15 WIB",
   },
   {
     id: "ord_1005",
     orderNumber: "ORD_991025",
-    customerName: "Digital Buyer",
+    customerName: "Dewi Lestari",
     customerPhone: "08111222333",
-    shippingAddress: "Digital Assets Download via Email / WA Instant",
+    shippingAddress: "Jl. Kemang Raya No. 21, Jakarta Selatan",
     totalMinor: 99000,
-    paymentMethod: "QRIS AutoLaris",
+    paymentMethod: "QRIS",
     paymentStatus: "PAID",
-    fulfillmentStatus: "DELIVERED",
-    createdAt: "2026-08-14 06:10",
-  }
+    fulfillmentStatus: "UNFULFILLED",
+    lifecycleStatus: "PAID",
+    courierCode: "JNE",
+    rtsRiskScore: 42,
+    createdAt: "14 Agu 2026, 06.10 WIB",
+  },
 ];
+
+const getRiskBadge = (score: number): RiskBadge => {
+  if (score < 30) {
+    return {
+      level: "green",
+      label: "Hijau",
+      className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+      barClassName: "bg-emerald-500",
+      advice: "Risiko rendah. Riwayat penerimaan paket pelanggan tergolong baik.",
+    };
+  }
+
+  if (score <= 70) {
+    return {
+      level: "yellow",
+      label: "Kuning",
+      className: "border-amber-200 bg-amber-50 text-amber-700",
+      barClassName: "bg-amber-500",
+      advice: "Risiko sedang. Konfirmasikan pesanan dan alamat pelanggan melalui WhatsApp.",
+    };
+  }
+
+  return {
+    level: "red",
+    label: "Merah",
+    className: "border-rose-200 bg-rose-50 text-rose-700",
+    barClassName: "bg-rose-500",
+    advice: "Risiko tinggi. Pastikan ulang alamat dan kesiapan pelanggan menerima paket.",
+  };
+};
+
+const buildWhatsAppUrl = (phone: string, orderNumber: string, customerName: string) => {
+  const digits = phone.replace(/\D/g, "");
+  const internationalPhone = digits.startsWith("62") ? digits : `62${digits.replace(/^0/, "")}`;
+  const message = encodeURIComponent(
+    `Halo Kak ${customerName}, terima kasih sudah memesan di toko kami. Kami ingin menindaklanjuti pesanan ${orderNumber}.`,
+  );
+  return `https://wa.me/${internationalPhone}?text=${message}`;
+};
+
+const toCsvCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
 
 export function OrderDataTable() {
   const [orders, setOrders] = useState<OrderRow[]>(SAMPLE_ORDERS);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [selectedStatus, setSelectedStatus] = useState<OrderTab>("ALL");
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | undefined>(undefined);
 
-  const showNotification = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+  useEffect(
+    () => () => {
+      window.clearTimeout(toastTimerRef.current);
+    },
+    [],
+  );
+
+  const filteredOrders = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    const phoneQuery = searchTerm.replace(/\D/g, "");
+
+    return orders.filter((order) => {
+      const matchesSearch =
+        !query ||
+        order.orderNumber.toLowerCase().includes(query) ||
+        (phoneQuery.length > 0 && order.customerPhone.replace(/\D/g, "").includes(phoneQuery));
+      const matchesStatus = selectedStatus === "ALL" || order.lifecycleStatus === selectedStatus;
+      return matchesSearch && matchesStatus;
+    });
+  }, [orders, searchTerm, selectedStatus]);
+
+  const selectedOrders = useMemo(
+    () => filteredOrders.filter((order) => selectedOrderIds.has(order.id)),
+    [filteredOrders, selectedOrderIds],
+  );
+
+  const allVisibleSelected =
+    filteredOrders.length > 0 && filteredOrders.every((order) => selectedOrderIds.has(order.id));
+  const selectedOrderRisk = selectedOrder ? getRiskBadge(selectedOrder.rtsRiskScore) : null;
+
+  const showNotification = (message: string) => {
+    window.clearTimeout(toastTimerRef.current);
+    setToastMessage(message);
+    toastTimerRef.current = window.setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customerPhone.includes(searchTerm);
+  const toggleOrderSelection = (orderId: string) => {
+    setSelectedOrderIds((current) => {
+      const next = new Set(current);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+  };
 
-    const matchesStatus =
-      selectedStatus === "ALL" ||
-      order.paymentStatus === selectedStatus ||
-      order.fulfillmentStatus === selectedStatus;
+  const toggleAllVisibleOrders = () => {
+    setSelectedOrderIds((current) => {
+      const next = new Set(current);
+      if (allVisibleSelected) filteredOrders.forEach((order) => next.delete(order.id));
+      else filteredOrders.forEach((order) => next.add(order.id));
+      return next;
+    });
+  };
 
-    return matchesSearch && matchesStatus;
-  });
+  const handleExportCsv = async () => {
+    if (selectedOrders.length === 0 || isExporting) return;
+    setIsExporting(true);
 
-  const handleExportCSV = () => {
-    const headers = "No Pesanan,Nama Pelanggan,No HP,Alamat,Total (Rp),Metode Bayar,Status Bayar,Status Pengiriman,Resi,Waktu\n";
-    const rows = filteredOrders.map(o => 
-      `"${o.orderNumber}","${o.customerName}","${o.customerPhone}","${o.shippingAddress.replace(/"/g, '""')}",${o.totalMinor},"${o.paymentMethod}","${o.paymentStatus}","${o.fulfillmentStatus}","${o.cnoteNo || ''}","${o.createdAt}"`
-    ).join("\n");
-    
-    const blob = new Blob([headers + rows], { type: "text/csv;charset=utf-8;" });
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 250));
+
+    const headers = [
+      "No. Pesanan",
+      "Nama Pelanggan",
+      "No. HP",
+      "Alamat",
+      "Total (IDR)",
+      "Metode Pembayaran",
+      "Status Pembayaran",
+      "Status Pesanan",
+      "Status Pengiriman",
+      "Risiko RTS",
+      "Resi",
+      "Waktu",
+    ];
+    const rows = selectedOrders.map((order) =>
+      [
+        order.orderNumber,
+        order.customerName,
+        order.customerPhone,
+        order.shippingAddress,
+        order.totalMinor,
+        order.paymentMethod,
+        order.paymentStatus === "PAID" ? "Lunas" : "Belum dibayar",
+        LIFECYCLE_LABELS[order.lifecycleStatus],
+        FULFILLMENT_LABELS[order.fulfillmentStatus],
+        `${getRiskBadge(order.rtsRiskScore).label} (${order.rtsRiskScore})`,
+        order.cnoteNo ?? "",
+        order.createdAt,
+      ]
+        .map(toCsvCell)
+        .join(","),
+    );
+
+    const blob = new Blob([[headers.map(toCsvCell).join(","), ...rows].join("\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `Data_Pesanan_DotAds_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.download = `pesanan-dotads-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
-    showNotification("Data pesanan berhasil di-export ke berkas CSV!");
+    link.remove();
+    URL.revokeObjectURL(url);
+
+    setIsExporting(false);
+    setSelectedOrderIds(new Set());
+    showNotification(`${selectedOrders.length} pesanan berhasil diekspor ke CSV.`);
   };
 
   const handleDispatchMengantar = (orderId: string) => {
-    setOrders((prev) =>
-      prev.map((o) => {
-        if (o.id === orderId) {
-          const generatedWaybill = `MNTR-${Math.floor(1000000 + Math.random() * 9000000)}`;
-          return {
-            ...o,
+    const generatedWaybill = `MNTR-${Math.floor(1_000_000 + Math.random() * 9_000_000)}`;
+    const updateOrder = (order: OrderRow): OrderRow =>
+      order.id === orderId
+        ? {
+            ...order,
             fulfillmentStatus: "PICKUP_REQUESTED",
+            lifecycleStatus: "SHIPPED",
             cnoteNo: generatedWaybill,
-          };
-        }
-        return o;
-      })
-    );
-    
-    if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder((prev) =>
-        prev
-          ? {
-              ...prev,
-              fulfillmentStatus: "PICKUP_REQUESTED",
-              cnoteNo: `MNTR-${Math.floor(1000000 + Math.random() * 9000000)}`,
-            }
-          : null
-      );
-    }
+          }
+        : order;
 
-    showNotification("Pesanan berhasil didaftarkan ke Ekspedisi Mengantar!");
-  };
-
-  const handleOpenWhatsApp = (phone: string, orderNo: string, name: string) => {
-    const cleanPhone = phone.replace(/^0/, "62");
-    const msg = encodeURIComponent(`Halo Kak ${name}, terima kasih telah memesan di toko kami (No. Pesanan: ${orderNo}). Kami ingin konfirmasi pesanan Anda.`);
-    window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
+    setOrders((current) => current.map(updateOrder));
+    setSelectedOrder((current) => (current ? updateOrder(current) : null));
+    showNotification("Pesanan berhasil didaftarkan ke ekspedisi Mengantar.");
   };
 
   return (
     <div className="space-y-4">
-      {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-5 right-5 z-50 bg-slate-900 text-white text-sm font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 border border-slate-700 animate-in fade-in slide-in-from-top-3 duration-200">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+        <div
+          role="status"
+          className="fixed right-5 top-5 z-[70] flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-xl"
+        >
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Main Data Table Wrapper */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
-        {/* Table Header Controls */}
-        <div className="p-5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div className="border-b border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Kelola Pesanan E-Commerce</h2>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">Buku kas transaksi COD & Payment Gateway real-time</p>
+              <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">Kelola pesanan</h1>
+              <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                Pantau pembayaran, pengiriman, dan risiko pengembalian pesanan.
+              </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
-              {/* Search Input */}
-              <div className="relative w-full sm:w-64">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <div className="flex w-full flex-col gap-2.5 sm:flex-row lg:w-auto">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
-                  type="text"
-                  placeholder="Cari pesanan, nama, HP..."
+                  type="search"
+                  aria-label="Cari nomor pesanan atau nomor telepon"
+                  placeholder="Cari no. pesanan atau telepon..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 text-xs font-medium border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                  onChange={(event) => {
+                    setSearchTerm(event.target.value);
+                    setSelectedOrderIds(new Set());
+                  }}
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-4 text-xs font-medium text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 />
               </div>
 
-              {/* Status Filter Dropdown */}
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full sm:w-auto text-xs font-semibold border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
-              >
-                <option value="ALL">Semua Status</option>
-                <option value="PAID">Lunas (Paid)</option>
-                <option value="UNPAID">Belum Bayar (COD)</option>
-                <option value="DELIVERED">Terkirim</option>
-                <option value="UNFULFILLED">Belum Diproses</option>
-              </select>
-
-              {/* Export Button */}
               <button
-                onClick={handleExportCSV}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-2 rounded-lg transition-colors border border-slate-200 dark:border-slate-700"
+                type="button"
+                onClick={handleExportCsv}
+                disabled={selectedOrders.length === 0 || isExporting}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
-                <Download className="w-3.5 h-3.5" />
-                Export CSV
+                <Download className={`h-3.5 w-3.5 ${isExporting ? "animate-bounce" : ""}`} />
+                {isExporting ? "Mengekspor..." : `Ekspor CSV (${selectedOrders.length})`}
               </button>
             </div>
           </div>
+
+          <div
+            role="tablist"
+            aria-label="Filter status pesanan"
+            className="mt-4 flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800"
+          >
+            {ORDER_TABS.map((tab) => {
+              const count =
+                tab.value === "ALL"
+                  ? orders.length
+                  : orders.filter((order) => order.lifecycleStatus === tab.value).length;
+              const active = selectedStatus === tab.value;
+
+              return (
+                <button
+                  key={tab.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => {
+                    setSelectedStatus(tab.value);
+                    setSelectedOrderIds(new Set());
+                  }}
+                  className={`-mb-px inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-bold transition-colors ${
+                    active
+                      ? "border-indigo-600 text-indigo-600"
+                      : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                  }`}
+                >
+                  {tab.label}
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${active ? "bg-indigo-50" : "bg-slate-100 dark:bg-slate-800"}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Dense Table */}
+        {selectedOrders.length > 0 && (
+          <div className="flex items-center justify-between border-b border-indigo-100 bg-indigo-50 px-5 py-2.5 text-xs font-semibold text-indigo-700">
+            <span>{selectedOrders.length} pesanan dipilih untuk ekspor.</span>
+            <button type="button" onClick={() => setSelectedOrderIds(new Set())} className="font-bold hover:underline">
+              Batalkan pilihan
+            </button>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full border-collapse text-left text-xs">
             <thead>
-              <tr className="bg-slate-50/80 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-800">
-                <th className="py-3.5 px-4">No. Pesanan</th>
-                <th className="py-3.5 px-4">Pelanggan</th>
-                <th className="py-3.5 px-4">Total Transaksi</th>
-                <th className="py-3.5 px-4">Pembayaran</th>
-                <th className="py-3.5 px-4">Status Pengiriman</th>
-                <th className="py-3.5 px-4">Risiko RTS</th>
-                <th className="py-3.5 px-4 text-right">Tindakan</th>
+              <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400">
+                <th className="w-10 px-4 py-3.5">
+                  <input
+                    type="checkbox"
+                    aria-label="Pilih semua pesanan yang terlihat"
+                    checked={allVisibleSelected}
+                    onChange={toggleAllVisibleOrders}
+                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                </th>
+                <th className="px-4 py-3.5">No. pesanan</th>
+                <th className="px-4 py-3.5">Pelanggan</th>
+                <th className="px-4 py-3.5 text-right">Total</th>
+                <th className="px-4 py-3.5">Status</th>
+                <th className="px-4 py-3.5">Pengiriman</th>
+                <th className="px-4 py-3.5">Risiko RTS</th>
+                <th className="px-4 py-3.5 text-right">Tindakan</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredOrders.length > 0 ? (
-                filteredOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors group">
-                    <td className="py-3.5 px-4">
-                      <span 
+              {filteredOrders.map((order) => {
+                const risk = getRiskBadge(order.rtsRiskScore);
+                const checked = selectedOrderIds.has(order.id);
+
+                return (
+                  <tr key={order.id} className="group transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <td className="px-4 py-3.5">
+                      <input
+                        type="checkbox"
+                        aria-label={`Pilih pesanan ${order.orderNumber}`}
+                        checked={checked}
+                        onChange={() => toggleOrderSelection(order.id)}
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <button
+                        type="button"
                         onClick={() => setSelectedOrder(order)}
-                        className="font-bold text-indigo-600 dark:text-indigo-400 group-hover:underline cursor-pointer"
+                        className="font-bold text-indigo-600 group-hover:underline dark:text-indigo-400"
                       >
                         {order.orderNumber}
-                      </span>
-                      <div className="text-[11px] text-slate-400 mt-0.5">{order.createdAt}</div>
+                      </button>
+                      <div className="mt-0.5 whitespace-nowrap text-[11px] text-slate-400">{order.createdAt}</div>
                     </td>
-                    <td className="py-3.5 px-4">
+                    <td className="px-4 py-3.5">
                       <p className="font-bold text-slate-900 dark:text-slate-100">{order.customerName}</p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{order.customerPhone}</p>
+                      <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{order.customerPhone}</p>
                     </td>
-                    <td className="py-3.5 px-4 font-extrabold text-slate-900 dark:text-slate-100">
-                      Rp {order.totalMinor.toLocaleString("id-ID")}
+                    <td className="whitespace-nowrap px-4 py-3.5 text-right font-extrabold text-slate-900 dark:text-slate-100">
+                      {IDR_FORMATTER.format(order.totalMinor)}
                     </td>
-                    <td className="py-3.5 px-4">
+                    <td className="px-4 py-3.5">
                       <div className="flex flex-col items-start gap-1">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] border font-bold ${
-                            order.paymentStatus === "PAID"
-                              ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
-                              : "bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                          className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                            order.lifecycleStatus === "COMPLETED"
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : order.lifecycleStatus === "RTS"
+                                ? "border-rose-200 bg-rose-50 text-rose-700"
+                                : "border-indigo-200 bg-indigo-50 text-indigo-700"
                           }`}
                         >
-                          {order.paymentStatus === "PAID" ? "Lunas" : "Belum Bayar (COD)"}
+                          {LIFECYCLE_LABELS[order.lifecycleStatus]}
                         </span>
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
-                          <CreditCard className="w-3 h-3" />
-                          {order.paymentMethod}
+                        <span className="flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                          <CreditCard className="h-3 w-3" />
+                          {order.paymentMethod} · {order.paymentStatus === "PAID" ? "Lunas" : "Belum dibayar"}
                         </span>
                       </div>
                     </td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex flex-col items-start gap-1">
-                        <span className="inline-flex items-center gap-1 text-slate-700 dark:text-slate-300 font-bold text-xs bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                    <td className="px-4 py-3.5">
+                      <div className="flex min-w-40 flex-col items-start gap-1">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                           {order.fulfillmentStatus === "DELIVERED" ? (
-                            <PackageCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                            <PackageCheck className="h-3.5 w-3.5 text-emerald-600" />
                           ) : (
-                            <Truck className="w-3.5 h-3.5 text-indigo-500" />
+                            <Truck className="h-3.5 w-3.5 text-indigo-500" />
                           )}
-                          {order.fulfillmentStatus}
+                          {FULFILLMENT_LABELS[order.fulfillmentStatus]}
                         </span>
                         {order.cnoteNo && (
-                          <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
-                            Resi: {order.cnoteNo}
-                          </span>
+                          <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">Resi: {order.cnoteNo}</span>
                         )}
                       </div>
                     </td>
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`inline-flex items-center gap-1 font-bold ${
-                          (order.rtsRiskScore || 0) > 50 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"
-                        }`}
-                      >
-                        {(order.rtsRiskScore || 0) > 50 && <ShieldAlert className="w-3.5 h-3.5" />}
-                        {order.rtsRiskScore}%
+                    <td className="px-4 py-3.5">
+                      <span className={`inline-flex min-w-24 items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold ${risk.className}`}>
+                        {risk.level === "red" && <ShieldAlert className="h-3.5 w-3.5" />}
+                        {risk.label} · {order.rtsRiskScore}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => setSelectedOrder(order)}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-colors"
-                        title="Lihat Detail Pesanan"
+                    <td className="whitespace-nowrap px-4 py-3.5 text-right">
+                      <a
+                        href={buildWhatsAppUrl(order.customerPhone, order.orderNumber, order.customerName)}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`Tindak lanjuti ${order.orderNumber} melalui WhatsApp`}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-emerald-600 transition-colors hover:bg-emerald-50 hover:text-emerald-700"
                       >
-                        <Eye className="w-4 h-4" />
+                        <MessageSquare className="h-4 w-4" />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedOrder(order)}
+                        aria-label={`Lihat detail ${order.orderNumber}`}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                      >
+                        <Eye className="h-4 w-4" />
                       </button>
                     </td>
                   </tr>
-                ))
-              ) : (
+                );
+              })}
+              {filteredOrders.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500">
-                    Tidak ada pesanan yang sesuai dengan kriteria pencarian.
+                  <td colSpan={8} className="px-4 py-12 text-center text-slate-500">
+                    Tidak ada pesanan yang sesuai dengan status atau pencarian ini.
                   </td>
                 </tr>
               )}
@@ -345,132 +562,128 @@ export function OrderDataTable() {
         </div>
       </div>
 
-      {/* Side Drawer Detail View */}
-      {selectedOrder && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex justify-end z-50 animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 border-l border-slate-200 dark:border-slate-800">
-            {/* Drawer Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900">
+      {selectedOrder && selectedOrderRisk && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-xs">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="order-detail-title"
+            className="flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-4 dark:border-slate-800 dark:bg-slate-900">
               <div>
-                <h3 className="font-extrabold text-xl text-slate-900 dark:text-slate-100">{selectedOrder.orderNumber}</h3>
+                <h2 id="order-detail-title" className="text-xl font-extrabold text-slate-900 dark:text-slate-100">
+                  {selectedOrder.orderNumber}
+                </h2>
                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{selectedOrder.createdAt}</p>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedOrder(null)}
-                className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+                aria-label="Tutup detail pesanan"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
               >
-                <X className="w-5 h-5" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Drawer Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Customer Section */}
+            <div className="flex-1 space-y-6 overflow-y-auto p-6">
               <section>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
-                    <MapPin className="w-4 h-4" /> Detail Pelanggan & Alamat
-                  </h4>
-                  <button
-                    onClick={() => handleOpenWhatsApp(selectedOrder.customerPhone, selectedOrder.orderNumber, selectedOrder.customerName)}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    <MapPin className="h-4 w-4" /> Pelanggan dan alamat
+                  </h3>
+                  <a
+                    href={buildWhatsAppUrl(selectedOrder.customerPhone, selectedOrder.orderNumber, selectedOrder.customerName)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:underline"
                   >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    Chat WA
-                  </button>
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    Hubungi via WhatsApp
+                  </a>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-4 border border-slate-200/80 dark:border-slate-800">
-                  <p className="font-bold text-slate-900 dark:text-slate-100 text-base mb-0.5">{selectedOrder.customerName}</p>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 font-mono mb-3">{selectedOrder.customerPhone}</p>
-                  <div className="pt-3 border-t border-slate-200 dark:border-slate-700">
-                    <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{selectedOrder.shippingAddress}</p>
-                  </div>
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+                  <p className="mb-0.5 text-base font-bold text-slate-900 dark:text-slate-100">{selectedOrder.customerName}</p>
+                  <p className="mb-3 font-mono text-xs text-slate-600 dark:text-slate-400">{selectedOrder.customerPhone}</p>
+                  <p className="border-t border-slate-200 pt-3 text-xs leading-relaxed text-slate-700 dark:border-slate-700 dark:text-slate-300">
+                    {selectedOrder.shippingAddress}
+                  </p>
                 </div>
               </section>
 
-              {/* Payment Section */}
               <section>
-                <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-                  <CreditCard className="w-4 h-4" /> Pembayaran & Kurir
-                </h4>
+                <h3 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <CreditCard className="h-4 w-4" /> Pembayaran dan kurir
+                </h3>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5">
-                    <p className="text-[11px] font-medium text-slate-400 mb-1">Metode Bayar</p>
-                    <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{selectedOrder.paymentMethod}</p>
-                    <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] border font-bold ${
-                      selectedOrder.paymentStatus === "PAID" 
-                        ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200" 
-                        : "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200"
-                    }`}>
-                      {selectedOrder.paymentStatus}
+                  <div className="rounded-xl border border-slate-200 bg-white p-3.5 dark:border-slate-700 dark:bg-slate-800">
+                    <p className="mb-1 text-[11px] font-medium text-slate-400">Metode pembayaran</p>
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{selectedOrder.paymentMethod}</p>
+                    <span className="mt-2 inline-block rounded border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                      {selectedOrder.paymentStatus === "PAID" ? "Lunas" : "Belum dibayar"}
                     </span>
                   </div>
-                  <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5">
-                    <p className="text-[11px] font-medium text-slate-400 mb-1">Ekspedisi</p>
-                    <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{selectedOrder.courierCode || "N/A"}</p>
-                    <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-2 truncate" title={selectedOrder.cnoteNo}>
-                      {selectedOrder.cnoteNo || "Belum terbit resi"}
+                  <div className="rounded-xl border border-slate-200 bg-white p-3.5 dark:border-slate-700 dark:bg-slate-800">
+                    <p className="mb-1 text-[11px] font-medium text-slate-400">Ekspedisi</p>
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{selectedOrder.courierCode ?? "Belum ditentukan"}</p>
+                    <p className="mt-2 truncate font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                      {selectedOrder.cnoteNo ?? "Resi belum tersedia"}
                     </p>
                   </div>
                 </div>
               </section>
 
-              {/* RTS Risk Assessment Section */}
               <section>
-                <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-                  <ShieldAlert className="w-4 h-4" /> Skor Analisis RTS Risk
-                </h4>
-                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Tingkat Risiko Gagal COD</span>
-                    <span className={`font-extrabold text-base ${
-                      (selectedOrder.rtsRiskScore || 0) > 50 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"
-                    }`}>
-                      {selectedOrder.rtsRiskScore}%
+                <h3 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <ShieldAlert className="h-4 w-4" /> Analisis risiko RTS
+                </h3>
+                <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Tingkat risiko gagal COD</span>
+                    <span className={`rounded-full border px-2 py-1 text-xs font-extrabold ${selectedOrderRisk.className}`}>
+                      {selectedOrderRisk.label} · {selectedOrder.rtsRiskScore}
                     </span>
                   </div>
-                  <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
                     <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        (selectedOrder.rtsRiskScore || 0) > 50 ? "bg-rose-500" : "bg-emerald-500"
-                      }`}
-                      style={{ width: `${selectedOrder.rtsRiskScore || 0}%` }}
-                    ></div>
+                      className={`h-full rounded-full transition-all duration-500 ${selectedOrderRisk.barClassName}`}
+                      style={{ width: `${selectedOrder.rtsRiskScore}%` }}
+                    />
                   </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
-                    {(selectedOrder.rtsRiskScore || 0) > 50 
-                      ? "⚠️ Risiko tinggi barang retur (RTS). Disarankan konfirmasi alamat via WA terlebih dahulu." 
-                      : "✅ Risiko rendah. Pelanggan memiliki riwayat penerimaan paket baik."}
+                  <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                    {selectedOrderRisk.advice}
                   </p>
                 </div>
               </section>
             </div>
 
-            {/* Drawer Footer Actions */}
-            <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col gap-2.5">
+            <div className="flex flex-col gap-2.5 border-t border-slate-100 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
               {selectedOrder.fulfillmentStatus === "UNFULFILLED" ? (
-                <button 
+                <button
+                  type="button"
                   onClick={() => handleDispatchMengantar(selectedOrder.id)}
-                  className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-sm transition-all text-xs"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-xs font-bold text-white shadow-xs transition-colors hover:bg-indigo-700"
                 >
-                  <Truck className="w-4 h-4" />
-                  Daftarkan Resi Mengantar ({selectedOrder.courierCode || "JNE"})
+                  <Truck className="h-4 w-4" />
+                  Daftarkan resi Mengantar ({selectedOrder.courierCode ?? "JNE"})
                 </button>
               ) : (
-                <button 
-                  onClick={() => showNotification("Cetak label pengiriman berhasil dikirim ke printer!")}
-                  className="w-full flex items-center justify-center gap-2 bg-slate-900 dark:bg-slate-100 dark:text-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-xl shadow-sm transition-all text-xs"
+                <button
+                  type="button"
+                  onClick={() => showNotification("Label pengiriman berhasil dikirim ke printer.")}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-xs font-bold text-white shadow-xs transition-colors hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900"
                 >
-                  <Printer className="w-4 h-4" />
-                  Cetak Label Resi Mengantar ({selectedOrder.cnoteNo})
+                  <Printer className="h-4 w-4" />
+                  Cetak label pengiriman{selectedOrder.cnoteNo ? ` (${selectedOrder.cnoteNo})` : ""}
                 </button>
               )}
-
               <button
+                type="button"
                 onClick={() => setSelectedOrder(null)}
-                className="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-2.5 px-4 rounded-xl transition-colors text-xs"
+                className="w-full rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
-                Tutup Detail
+                Tutup detail
               </button>
             </div>
           </div>

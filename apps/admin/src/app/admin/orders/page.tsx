@@ -1,12 +1,9 @@
-"use client";
-
-import React from "react";
 import { OrderDataTable } from "@/components/OrderDataTable";
 
 export default function AdminOrdersPage() {
   return (
-    <div className="space-y-6">
+    <section aria-label="Daftar dan pengelolaan pesanan" className="space-y-6 pb-8">
       <OrderDataTable />
-    </div>
+    </section>
   );
 }

@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { Radio, ShieldCheck, CheckCircle2, RefreshCw, Layers, Send, Save } from "lucide-react";
+import { Radio, ShieldCheck, CheckCircle2, RefreshCw, Layers, Send, Save, AlertCircle, PlayCircle } from "lucide-react";
 
 export interface EventLog {
   id: string;
   eventName: string;
   platform: string;
   eventId: string;
-  status: string;
+  status: "DISPATCHED" | "FAILED" | "PENDING";
   emqScore: string;
   timestamp: string;
 }
@@ -20,7 +20,7 @@ const INITIAL_LOGS: EventLog[] = [
     platform: "Meta CAPI",
     eventId: "ord_991022_pur",
     status: "DISPATCHED",
-    emqScore: "9.3/10 (High)",
+    emqScore: "9.2/10 (High)",
     timestamp: "2026-08-14 10:15:02",
   },
   {
@@ -29,7 +29,7 @@ const INITIAL_LOGS: EventLog[] = [
     platform: "Google Ads CAPI",
     eventId: "ord_991022_gads",
     status: "DISPATCHED",
-    emqScore: "Enhanced Match",
+    emqScore: "8.8/10 (Enhanced Match)",
     timestamp: "2026-08-14 10:15:03",
   },
   {
@@ -38,7 +38,7 @@ const INITIAL_LOGS: EventLog[] = [
     platform: "TikTok Events API",
     eventId: "ord_991022_tt",
     status: "DISPATCHED",
-    emqScore: "SHA256 Match",
+    emqScore: "9.0/10 (SHA256 Match)",
     timestamp: "2026-08-14 10:15:03",
   },
   {
@@ -46,8 +46,8 @@ const INITIAL_LOGS: EventLog[] = [
     eventName: "Lead",
     platform: "Meta CAPI",
     eventId: "draft_lead_7712",
-    status: "DISPATCHED",
-    emqScore: "8.5/10",
+    status: "FAILED",
+    emqScore: "0/10 (Network Error)",
     timestamp: "2026-08-14 09:45:18",
   },
 ];
@@ -84,7 +84,7 @@ export default function AdminTrackingPage() {
           platform: "Meta CAPI",
           eventId: `${newEvtId}_meta`,
           status: "DISPATCHED",
-          emqScore: "9.5/10 (Match)",
+          emqScore: "9.2/10 (Match)",
           timestamp: now,
         },
         {
@@ -93,7 +93,16 @@ export default function AdminTrackingPage() {
           platform: "Google Ads CAPI",
           eventId: `${newEvtId}_gads`,
           status: "DISPATCHED",
-          emqScore: "Enhanced Match",
+          emqScore: "8.8/10 (Enhanced Match)",
+          timestamp: now,
+        },
+        {
+          id: `evt_${Date.now()}_3`,
+          eventName: "CompletePayment",
+          platform: "TikTok Events API",
+          eventId: `${newEvtId}_tt`,
+          status: "DISPATCHED",
+          emqScore: "9.0/10 (SHA256 Match)",
           timestamp: now,
         },
         ...prev,
@@ -101,7 +110,18 @@ export default function AdminTrackingPage() {
 
       setIsSimulating(false);
       showNotification("Simulasi pengiriman signal Purchase CAPI berhasil terkirim!");
-    }, 600);
+    }, 800);
+  };
+
+  const handleRetry = (id: string) => {
+    setLogs((prevLogs) => 
+      prevLogs.map((log) => 
+        log.id === id 
+          ? { ...log, status: "DISPATCHED", emqScore: "8.5/10 (Retried)", timestamp: new Date().toISOString().replace("T", " ").slice(0, 19) }
+          : log
+      )
+    );
+    showNotification("Event berhasil dikirim ulang (Retry)!");
   };
 
   return (
@@ -135,36 +155,42 @@ export default function AdminTrackingPage() {
         </button>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards / EMQ Score Gauges */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
           <div className="flex items-center justify-between text-purple-600 dark:text-purple-400 mb-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Meta CAPI EMQ Score</span>
             <Radio className="w-4 h-4" />
           </div>
-          <p className="text-2xl font-extrabold text-purple-700 dark:text-purple-300">9.3 / 10</p>
+          <p className="text-2xl font-extrabold text-purple-700 dark:text-purple-300">9.2 <span className="text-sm text-purple-400">/ 10</span></p>
           <div className="flex items-center space-x-1 text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Kualitas Match Tinggi (Deduplicated `event_id`)</span>
+            <span>Kualitas Match Tinggi (Deduplicated)</span>
           </div>
         </div>
 
         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
           <div className="flex items-center justify-between text-blue-600 dark:text-blue-400 mb-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Google Ads Consent Mode</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Google Ads Signal Score</span>
             <ShieldCheck className="w-4 h-4" />
           </div>
-          <p className="text-2xl font-extrabold text-blue-700 dark:text-blue-300">v2 Compliant</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Enhanced Conversions Aktif (`gclid`, `gbraid`, `wbraid`)</p>
+          <p className="text-2xl font-extrabold text-blue-700 dark:text-blue-300">8.8 <span className="text-sm text-blue-400">/ 10</span></p>
+          <div className="flex items-center space-x-1 text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Enhanced Conversions Aktif</span>
+          </div>
         </div>
 
         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
           <div className="flex items-center justify-between text-slate-800 dark:text-slate-200 mb-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Status Outbox Conversion</span>
-            <Layers className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">TikTok Events API Score</span>
+            <Layers className="w-4 h-4 text-slate-600 dark:text-slate-400" />
           </div>
-          <p className="text-2xl font-extrabold text-slate-900 dark:text-slate-100">100% Dispatched</p>
-          <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">0 pending event di antrean Outbox</p>
+          <p className="text-2xl font-extrabold text-slate-900 dark:text-slate-100">9.0 <span className="text-sm text-slate-400">/ 10</span></p>
+          <div className="flex items-center space-x-1 text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>SHA256 Email/Phone Match Aktif</span>
+          </div>
         </div>
       </div>
 
@@ -235,9 +261,14 @@ export default function AdminTrackingPage() {
 
       {/* Outbox Conversion Event Audit Table */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
-        <div className="p-5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Log Aktivitas Event Outbox Conversions</h2>
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">Riwayat pengiriman event real-time dengan proteksi deduplikasi `event_id`</p>
+        <div className="p-5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-between items-center">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Log Aktivitas Antrean (Outbox) Conversions</h2>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">Riwayat pengiriman event real-time dengan proteksi deduplikasi `event_id`</p>
+          </div>
+          <div className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-400">
+            Engine Outbox Aktif
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -246,10 +277,11 @@ export default function AdminTrackingPage() {
               <tr className="bg-slate-50/80 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-800">
                 <th className="py-3.5 px-4">Platform Target</th>
                 <th className="py-3.5 px-4">Nama Event</th>
-                <th className="py-3.5 px-4">Event ID (Deduplicated)</th>
+                <th className="py-3.5 px-4">Event ID (Deduplikasi)</th>
                 <th className="py-3.5 px-4">Skor Match / EMQ</th>
                 <th className="py-3.5 px-4">Status Outbox</th>
                 <th className="py-3.5 px-4">Waktu Terkirim</th>
+                <th className="py-3.5 px-4 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -270,13 +302,30 @@ export default function AdminTrackingPage() {
                     {log.emqScore}
                   </td>
                   <td className="py-3.5 px-4">
-                    <span className="inline-flex items-center gap-1 font-bold text-[10px] bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                      {log.status}
-                    </span>
+                    {log.status === "DISPATCHED" ? (
+                      <span className="inline-flex items-center gap-1 font-bold text-[10px] bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                        Terkirim
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 font-bold text-[10px] bg-rose-50 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 px-2 py-0.5 rounded-full">
+                        <AlertCircle className="w-3 h-3 text-rose-500" />
+                        Gagal
+                      </span>
+                    )}
                   </td>
                   <td className="py-3.5 px-4 text-slate-400 text-[11px]">
                     {log.timestamp}
+                  </td>
+                  <td className="py-3.5 px-4 text-right">
+                    {log.status === "FAILED" && (
+                      <button 
+                        onClick={() => handleRetry(log.id)}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-300 px-2 py-1 rounded-md transition-colors"
+                      >
+                        <PlayCircle className="w-3 h-3" /> Retry
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

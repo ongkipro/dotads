@@ -1,140 +1,139 @@
 "use client";
 
-import React, { useState } from "react";
-import { Store, Save, Settings2, ShieldCheck } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { CheckCircle2, Save, Settings2, ShieldCheck, Store } from "lucide-react";
+
+const initialSettings = {
+  storeName: "Alpha Store",
+  storeSlug: "alpha-store",
+  description: "Produk pilihan untuk kebutuhan harian pelanggan Indonesia.",
+  supportEmail: "support@alphastore.id",
+  supportPhone: "6281234567890",
+  currency: "IDR",
+  timezone: "Asia/Jakarta",
+  orderPrefix: "ALP",
+  codEnabled: true,
+  autoConfirmOrders: false,
+};
 
 export default function StoreSettingsPage() {
+  const [formData, setFormData] = useState(initialSettings);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    storeName: "Alpha Store (Pro)",
-    description: "Premium digital goods and fashion.",
-    supportEmail: "support@alphastore.id",
-    supportPhone: "6281234567890",
-    currency: "IDR",
-    timezone: "Asia/Jakarta",
-    codEnabled: true,
-  });
+  const [saved, setSaved] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setIsSaving(true);
-    setTimeout(() => {
+    setSaved(false);
+    window.setTimeout(() => {
       setIsSaving(false);
-      // Simulate success
-    }, 600);
+      setSaved(true);
+    }, 500);
   };
 
   return (
-    <div className="space-y-6 pb-8 max-w-4xl">
+    <form onSubmit={handleSave} className="max-w-4xl space-y-6 pb-8">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">
-            <Store className="h-4 w-4" /> Global Options
+            <Store className="h-4 w-4" /> Identitas Toko
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Store Settings</h1>
-          <p className="mt-1 text-sm text-slate-500">Configure your storefront identity and basic operations.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Pengaturan Toko</h1>
+          <p className="mt-1 text-sm text-slate-500">Atur identitas toko, layanan pelanggan, dan aturan pesanan utama.</p>
         </div>
-
         <button
-          onClick={handleSave}
+          type="submit"
           disabled={isSaving}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 disabled:opacity-50"
         >
-          <Save className="h-4 w-4" />
-          <span>{isSaving ? "Saving..." : "Save Settings"}</span>
+          {saved && !isSaving ? <CheckCircle2 className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+          <span>{isSaving ? "Menyimpan..." : saved ? "Tersimpan" : "Simpan Pengaturan"}</span>
         </button>
       </header>
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex items-center gap-2">
-          <Settings2 className="w-5 h-5 text-slate-400" />
-          <h2 className="text-base font-bold text-slate-900">General Information</h2>
+      {saved && (
+        <div role="status" aria-live="polite" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+          <CheckCircle2 className="h-4 w-4" /> Pengaturan toko berhasil diperbarui.
         </div>
-        
-        <div className="p-6 space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 block">Store Name</label>
-              <input
-                type="text"
-                value={formData.storeName}
-                onChange={(e) => setFormData({ ...formData, storeName: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-              />
-            </div>
-            
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 block">Currency</label>
-              <select
-                value={formData.currency}
-                onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-              >
-                <option value="IDR">IDR (Indonesian Rupiah)</option>
-                <option value="USD">USD (US Dollar)</option>
+      )}
+
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center gap-2 border-b border-slate-100 p-5">
+          <Settings2 className="h-5 w-5 text-slate-400" />
+          <h2 className="text-base font-bold text-slate-900">Informasi Umum</h2>
+        </div>
+        <div className="space-y-5 p-6">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <label className="space-y-1.5 text-xs font-semibold text-slate-700">
+              <span className="block">Nama toko</span>
+              <input required value={formData.storeName} onChange={(event) => setFormData({ ...formData, storeName: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20" />
+            </label>
+            <label className="space-y-1.5 text-xs font-semibold text-slate-700">
+              <span className="block">Alamat singkat toko</span>
+              <div className="flex rounded-lg border border-slate-200 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/20">
+                <span className="flex items-center rounded-l-lg bg-slate-50 px-3 text-xs font-normal text-slate-500">dotads.id/</span>
+                <input required value={formData.storeSlug} onChange={(event) => setFormData({ ...formData, storeSlug: event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })} className="min-w-0 flex-1 rounded-r-lg px-3 py-2.5 text-sm font-normal outline-none" />
+              </div>
+            </label>
+            <label className="space-y-1.5 text-xs font-semibold text-slate-700 md:col-span-2">
+              <span className="block">Deskripsi toko</span>
+              <textarea rows={3} value={formData.description} onChange={(event) => setFormData({ ...formData, description: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20" />
+            </label>
+            <label className="space-y-1.5 text-xs font-semibold text-slate-700">
+              <span className="block">Email layanan pelanggan</span>
+              <input required type="email" value={formData.supportEmail} onChange={(event) => setFormData({ ...formData, supportEmail: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20" />
+            </label>
+            <label className="space-y-1.5 text-xs font-semibold text-slate-700">
+              <span className="block">Nomor WhatsApp layanan pelanggan</span>
+              <input required type="tel" value={formData.supportPhone} onChange={(event) => setFormData({ ...formData, supportPhone: event.target.value.replace(/\D/g, "") })} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20" />
+            </label>
+            <label className="space-y-1.5 text-xs font-semibold text-slate-700">
+              <span className="block">Mata uang</span>
+              <select value={formData.currency} onChange={(event) => setFormData({ ...formData, currency: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20">
+                <option value="IDR">IDR — Rupiah Indonesia</option>
+                <option value="USD">USD — Dolar Amerika Serikat</option>
               </select>
-            </div>
-            
-            <div className="space-y-1.5 md:col-span-2">
-              <label className="text-xs font-semibold text-slate-700 block">Store Description</label>
-              <textarea
-                rows={3}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-              />
-            </div>
-            
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 block">Customer Service Email</label>
-              <input
-                type="email"
-                value={formData.supportEmail}
-                onChange={(e) => setFormData({ ...formData, supportEmail: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-              />
-            </div>
-            
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 block">CS Phone / WhatsApp</label>
-              <input
-                type="tel"
-                value={formData.supportPhone}
-                onChange={(e) => setFormData({ ...formData, supportPhone: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-              />
-            </div>
-            
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 block">Timezone</label>
-              <select
-                value={formData.timezone}
-                onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-              >
-                <option value="Asia/Jakarta">Asia/Jakarta (WIB)</option>
-                <option value="Asia/Makassar">Asia/Makassar (WITA)</option>
-                <option value="Asia/Jayapura">Asia/Jayapura (WIT)</option>
+            </label>
+            <label className="space-y-1.5 text-xs font-semibold text-slate-700">
+              <span className="block">Zona waktu operasional</span>
+              <select value={formData.timezone} onChange={(event) => setFormData({ ...formData, timezone: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20">
+                <option value="Asia/Jakarta">Jakarta (WIB)</option>
+                <option value="Asia/Makassar">Makassar (WITA)</option>
+                <option value="Asia/Jayapura">Jayapura (WIT)</option>
               </select>
-            </div>
-          </div>
-          
-          <div className="pt-5 mt-5 border-t border-slate-100 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900">Cash on Delivery (COD)</h3>
-              <p className="text-sm text-slate-500 mt-0.5">Enable or disable COD payments across all funnels.</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                className="sr-only peer" 
-                checked={formData.codEnabled}
-                onChange={(e) => setFormData({ ...formData, codEnabled: e.target.checked })}
-              />
-              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+            </label>
+            <label className="space-y-1.5 text-xs font-semibold text-slate-700">
+              <span className="block">Awalan nomor pesanan</span>
+              <input maxLength={6} value={formData.orderPrefix} onChange={(event) => setFormData({ ...formData, orderPrefix: event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") })} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-mono uppercase outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20" />
+              <span className="block font-normal text-slate-500">Contoh: {formData.orderPrefix || "TOKO"}-10241</span>
             </label>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center gap-2 border-b border-slate-100 p-5">
+          <ShieldCheck className="h-5 w-5 text-slate-400" />
+          <h2 className="text-base font-bold text-slate-900">Aturan Pesanan</h2>
+        </div>
+        <div className="divide-y divide-slate-100 px-6">
+          {[
+            { key: "codEnabled" as const, title: "Bayar di tempat (COD)", description: "Tawarkan pembayaran COD pada formulir pemesanan yang mendukungnya." },
+            { key: "autoConfirmOrders" as const, title: "Konfirmasi pesanan otomatis", description: "Pesanan baru langsung masuk antrean pemenuhan tanpa pemeriksaan manual." },
+          ].map((setting) => (
+            <div key={setting.key} className="flex items-center justify-between gap-5 py-5">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">{setting.title}</h3>
+                <p className="mt-0.5 text-sm text-slate-500">{setting.description}</p>
+              </div>
+              <label className="relative inline-flex shrink-0 cursor-pointer items-center">
+                <input type="checkbox" className="peer sr-only" checked={formData[setting.key]} onChange={(event) => setFormData({ ...formData, [setting.key]: event.target.checked })} />
+                <span className="h-6 w-11 rounded-full bg-slate-200 transition-colors after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-slate-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-indigo-600 peer-checked:after:translate-x-full peer-focus:ring-4 peer-focus:ring-indigo-500/20" />
+              </label>
+            </div>
+          ))}
+        </div>
+      </section>
+    </form>
   );
 }
