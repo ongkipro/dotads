@@ -215,7 +215,7 @@ export class DotAdsFormElement extends HTMLElement {
       const paymentMethod = (this.shadow.querySelector("#paymentMethod") as HTMLSelectElement).value;
 
       const payload = {
-        tenantId: this.tenantId || "11111111-1111-1111-1111-111111111111",
+        tenantId: this.tenantId || "2f2ca823-46bf-4ab5-a5fe-61a49d175fa8",
         customerName,
         customerPhone,
         shippingAddress,
