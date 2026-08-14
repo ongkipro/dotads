@@ -6,7 +6,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "check": "turbo check",
-    "test": "pnpm --filter @dotads/api smoke:rbac && pnpm --filter @dotads/api smoke:member-invitations && pnpm --filter @dotads/api smoke:domain-routing && pnpm --filter @dotads/api smoke:audit-log && pnpm run smoke:release",
+    "test": "pnpm --filter @dotads/api smoke:rbac && pnpm --filter @dotads/api smoke:member-invitations && pnpm --filter @dotads/api smoke:domain-routing && pnpm --filter @dotads/api smoke:audit-log && pnpm --filter @dotads/api smoke:platform && pnpm run smoke:release",
     "db:generate": "pnpm --filter @dotads/db db:generate",
     "db:migrate": "pnpm --filter @dotads/db db:migrate",
     "db:seed": "pnpm --filter @dotads/db db:seed",

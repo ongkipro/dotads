@@ -11,7 +11,8 @@
     "smoke:rbac": "node --experimental-strip-types scripts/smoke-rbac.ts",
     "smoke:member-invitations": "node --experimental-strip-types scripts/smoke-member-invitations.ts",
     "smoke:domain-routing": "node --experimental-strip-types scripts/smoke-domain-routing.ts",
-    "smoke:audit-log": "node --experimental-strip-types scripts/smoke-audit-log.ts"
+    "smoke:audit-log": "node --experimental-strip-types scripts/smoke-audit-log.ts",
+    "smoke:platform": "node --experimental-strip-types scripts/smoke-platform.ts"
   },
   "dependencies": {
     "@dotads/auth": "workspace:*",
