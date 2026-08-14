@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import {
+  ArrowLeft,
   Barcode,
   CheckCircle2,
   Edit,
@@ -14,7 +15,6 @@ import {
   Sparkles,
   Trash2,
   Upload,
-  X,
 } from "lucide-react";
 
 type ProductStatus = "active" | "draft" | "archived";
@@ -134,22 +134,12 @@ export default function AdminProductsPage() {
   const [products, setProducts] = useState<ProductItem[]>(INITIAL_PRODUCTS);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "form">("list");
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<ProductItem | null>(null);
-  const [imageModalOpen, setImageModalOpen] = useState(false);
-  const [imageDraft, setImageDraft] = useState("");
   const [formData, setFormData] = useState<ProductFormState>(EMPTY_FORM);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimerRef = useRef<number | undefined>(undefined);
-
-  useEffect(
-    () => () => {
-      window.clearTimeout(toastTimerRef.current);
-    },
-    [],
-  );
-
   const filteredProducts = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
@@ -169,13 +159,13 @@ export default function AdminProductsPage() {
     toastTimerRef.current = window.setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const openAddModal = () => {
+  const openAddForm = () => {
     setEditingProductId(null);
     setFormData({ ...EMPTY_FORM, gtin: generateGtin13() });
-    setProductModalOpen(true);
+    setViewMode("form");
   };
 
-  const openEditModal = (product: ProductItem) => {
+  const openEditForm = (product: ProductItem) => {
     setEditingProductId(product.id);
     setFormData({
       name: product.name,
@@ -189,14 +179,8 @@ export default function AdminProductsPage() {
       status: product.status,
       imageUrl: product.imageUrl ?? "",
     });
-    setProductModalOpen(true);
+    setViewMode("form");
   };
-
-  const openImageModal = () => {
-    setImageDraft(formData.imageUrl);
-    setImageModalOpen(true);
-  };
-
   const handleImageFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -209,7 +193,9 @@ export default function AdminProductsPage() {
 
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === "string") setImageDraft(reader.result);
+      if (typeof reader.result === "string") {
+        setFormData((current) => ({ ...current, imageUrl: reader.result as string }));
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -234,17 +220,16 @@ export default function AdminProductsPage() {
 
     if (editingProductId) {
       setProducts((current) =>
-        current.map((product) => (product.id === editingProductId ? nextProduct : product)),
+        current.map((product) => (product.id === editingProductId ? { ...product, ...nextProduct } : product)),
       );
-      showToast("Produk berhasil diperbarui.");
+      showToast("Perubahan produk berhasil disimpan.");
     } else {
       setProducts((current) => [nextProduct, ...current]);
       showToast("Produk baru berhasil ditambahkan.");
     }
 
-    setProductModalOpen(false);
+    setViewMode("list");
   };
-
   const confirmDelete = () => {
     if (!deleteCandidate) return;
     setProducts((current) => current.filter((product) => product.id !== deleteCandidate.id));
@@ -264,294 +249,162 @@ export default function AdminProductsPage() {
         </div>
       )}
 
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600">
-            <Package className="h-4 w-4" />
-            <span>Katalog dan inventaris</span>
-          </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Produk</h1>
-          <p className="mt-1 text-sm font-medium text-slate-500">
-            Kelola data produk, barcode GTIN, harga, berat, dan stok dalam satu tempat.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={openAddModal}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-indigo-700"
-        >
-          <Plus className="h-4 w-4" />
-          Tambah produk
-        </button>
-      </div>
-
-      <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative max-w-md flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="search"
-              aria-label="Cari produk"
-              placeholder="Cari nama produk, SKU, atau GTIN..."
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-            />
-          </div>
-          <select
-            aria-label="Filter status produk"
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-          >
-            <option value="all">Semua Status</option>
-            <option value="active">Aktif</option>
-            <option value="draft">Draf</option>
-            <option value="archived">Diarsipkan</option>
-          </select>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                <th className="px-3 py-3">Produk</th>
-                <th className="px-3 py-3">SKU dan GTIN</th>
-                <th className="px-3 py-3">Berat</th>
-                <th className="px-3 py-3 text-right">Harga</th>
-                <th className="px-3 py-3">Stok</th>
-                <th className="px-3 py-3">Status</th>
-                <th className="px-3 py-3 text-right">Tindakan</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredProducts.map((product) => (
-                <tr key={product.id} className="transition-colors hover:bg-slate-50/50">
-                  <td className="px-3 py-3">
-                    <div className="flex min-w-52 items-center gap-3">
-                      {product.imageUrl ? (
-                        <img
-                          src={product.imageUrl}
-                          alt={`Gambar ${product.name}`}
-                          className="h-10 w-10 rounded-lg border border-slate-200 object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
-                          <ImageIcon className="h-4 w-4" />
-                        </div>
-                      )}
-                      <div>
-                        <p className="font-bold text-slate-900">{product.name}</p>
-                        <p className="font-mono text-[11px] text-slate-400">/{product.slug}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-3 py-3">
-                    <p className="font-semibold text-slate-800">{product.sku}</p>
-                    <span className="mt-1 inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-[11px] text-slate-700">
-                      <Barcode className="h-3 w-3 text-slate-500" />
-                      {product.gtin}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3 font-semibold text-slate-700">
-                    {product.weightGrams.toLocaleString("id-ID")} gram
-                  </td>
-                  <td className="px-3 py-3 text-right">
-                    <p className="font-bold text-slate-900">{IDR_FORMATTER.format(product.priceValue)}</p>
-                    {product.compareAtPriceValue && (
-                      <p className="text-[10px] text-slate-400 line-through">
-                        {IDR_FORMATTER.format(product.compareAtPriceValue)}
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-3 py-3">
-                    <span
-                      className={`font-semibold ${
-                        product.stockQuantity > 10 ? "text-emerald-700" : "text-rose-600"
-                      }`}
-                    >
-                      {product.stockQuantity.toLocaleString("id-ID")} unit
-                    </span>
-                  </td>
-                  <td className="px-3 py-3">
-                    <span
-                      className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${
-                        product.status === "active"
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                          : product.status === "draft"
-                            ? "border-amber-200 bg-amber-50 text-amber-700"
-                            : "border-slate-200 bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      {STATUS_LABELS[product.status]}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => openEditModal(product)}
-                      aria-label={`Edit ${product.name}`}
-                      className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-indigo-600"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteCandidate(product)}
-                      aria-label={`Hapus ${product.name}`}
-                      className="ml-1 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {filteredProducts.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-3 py-12 text-center text-sm text-slate-500">
-                    Tidak ada produk yang cocok dengan pencarian Anda.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {productModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="product-modal-title"
-            className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl"
-          >
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white p-5">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-indigo-600" />
-                <h2 id="product-modal-title" className="text-base font-bold text-slate-900">
-                  {editingProductId ? "Edit produk" : "Tambah produk baru"}
-                </h2>
-              </div>
+      {viewMode === "form" ? (
+        <div className="space-y-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-4">
+            <div>
               <button
                 type="button"
-                onClick={() => setProductModalOpen(false)}
-                aria-label="Tutup formulir produk"
-                className="rounded-lg p-1 text-slate-400 hover:text-slate-600"
+                onClick={() => setViewMode("list")}
+                className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors"
               >
-                <X className="h-5 w-5" />
+                <ArrowLeft className="h-4 w-4" />
+                Kembali ke Katalog Produk
+              </button>
+              <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
+                {editingProductId ? `Edit Produk: ${formData.name}` : "Tambah Produk Baru"}
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Lengkapi rincian produk, harga, stok, gambar, dan informasi logistik untuk ditampilkan di toko.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                form="product-full-form"
+                className="rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700"
+              >
+                {editingProductId ? "Simpan Perubahan" : "Terbitkan Produk"}
               </button>
             </div>
+          </div>
 
-            <form onSubmit={handleFormSubmit} className="space-y-4 p-5 text-xs font-semibold text-slate-700">
-              <div>
-                <label htmlFor="product-name" className="mb-1 block">Nama produk</label>
-                <input
-                  id="product-name"
-                  type="text"
-                  required
-                  placeholder="Contoh: Gawai Premium Alpha"
-                  value={formData.name}
-                  onChange={(event) => setFormData((current) => ({ ...current, name: event.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                />
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
+          <form id="product-full-form" onSubmit={handleFormSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="space-y-6 lg:col-span-2">
+              <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Informasi Produk</h2>
                 <div>
-                  <label htmlFor="product-sku" className="mb-1 block">SKU</label>
+                  <label htmlFor="product-name" className="mb-1 block text-xs font-bold text-slate-700">Nama produk</label>
                   <input
-                    id="product-sku"
+                    id="product-name"
                     type="text"
                     required
-                    placeholder="DTA-PRODUK-001"
-                    value={formData.sku}
-                    onChange={(event) => setFormData((current) => ({ ...current, sku: event.target.value }))}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 font-mono font-normal uppercase outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                    placeholder="Contoh: Gawai Premium Alpha"
+                    value={formData.name}
+                    onChange={(event) => {
+                      const name = event.target.value;
+                      setFormData((current) => ({
+                        ...current,
+                        name,
+                        slug: editingProductId ? current.slug : createSlug(name),
+                      }));
+                    }}
+                    className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
                   />
                 </div>
                 <div>
-                  <label htmlFor="product-slug" className="mb-1 block">Slug URL</label>
+                  <label htmlFor="product-slug" className="mb-1 block text-xs font-bold text-slate-700">Slug URL</label>
                   <input
                     id="product-slug"
                     type="text"
-                    placeholder="Dibuat otomatis dari nama"
+                    placeholder="gawai-premium-alpha"
                     value={formData.slug}
                     onChange={(event) => setFormData((current) => ({ ...current, slug: event.target.value }))}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 font-mono font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full rounded-xl border border-slate-200 p-3 font-mono text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
                   />
                 </div>
-              </div>
+              </section>
 
-              <div>
-                <label htmlFor="product-gtin" className="mb-1 block">Barcode GTIN-13</label>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <input
-                    id="product-gtin"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]{13}"
-                    required
-                    value={formData.gtin}
-                    onChange={(event) => setFormData((current) => ({ ...current, gtin: event.target.value.replace(/\D/g, "").slice(0, 13) }))}
-                    className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 font-mono font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setFormData((current) => ({ ...current, gtin: generateGtin13() }))}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-indigo-700 transition-colors hover:bg-indigo-100"
+              <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Harga & Diskon</h2>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="product-price" className="mb-1 block text-xs font-bold text-slate-700">Harga jual (IDR)</label>
+                    <input
+                      id="product-price"
+                      type="number"
+                      required
+                      min="0"
+                      step="1000"
+                      value={formData.priceValue}
+                      onChange={(event) => setFormData((current) => ({ ...current, priceValue: Number(event.target.value) }))}
+                      className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="product-compare-price" className="mb-1 block text-xs font-bold text-slate-700">Harga sebelum diskon (IDR)</label>
+                    <input
+                      id="product-compare-price"
+                      type="number"
+                      min="0"
+                      step="1000"
+                      value={formData.compareAtPriceValue}
+                      onChange={(event) => setFormData((current) => ({ ...current, compareAtPriceValue: Number(event.target.value) }))}
+                      className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Gambar Produk</h2>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+                    {formData.imageUrl ? (
+                      <img src={formData.imageUrl} alt="Pratinjau produk" className="h-40 w-40 rounded-xl border border-slate-200 object-cover shadow-sm" />
+                    ) : (
+                      <div className="flex h-32 w-32 items-center justify-center rounded-xl bg-slate-200 text-slate-400">
+                        <ImageIcon className="h-8 w-8" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-xs font-bold text-indigo-700 transition-colors hover:bg-indigo-100">
+                      <Upload className="h-4 w-4" />
+                      Unggah berkas gambar
+                      <input type="file" accept="image/*" onChange={handleImageFileChange} className="sr-only" />
+                    </label>
+                    <div>
+                      <label htmlFor="image-url" className="mb-1 block text-xs font-bold text-slate-700">Atau masukkan URL gambar</label>
+                      <input
+                        id="image-url"
+                        type="url"
+                        placeholder="https://images.unsplash.com/..."
+                        value={formData.imageUrl}
+                        onChange={(event) => setFormData((current) => ({ ...current, imageUrl: event.target.value }))}
+                        className="w-full rounded-xl border border-slate-200 p-2.5 text-xs outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div className="space-y-6">
+              <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Status & Inventaris</h2>
+                <div>
+                  <label htmlFor="product-status" className="mb-1 block text-xs font-bold text-slate-700">Status produk</label>
+                  <select
+                    id="product-status"
+                    value={formData.status}
+                    onChange={(event) => setFormData((current) => ({ ...current, status: event.target.value as ProductStatus }))}
+                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
                   >
-                    <RefreshCw className="h-3.5 w-3.5" />
-                    Buat GTIN
-                  </button>
-                </div>
-                <p className="mt-1 font-normal text-slate-400">Nomor GTIN dibuat dengan digit pemeriksa yang valid.</p>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="product-price" className="mb-1 block">Harga jual (IDR)</label>
-                  <input
-                    id="product-price"
-                    type="number"
-                    required
-                    min="0"
-                    step="1000"
-                    value={formData.priceValue}
-                    onChange={(event) => setFormData((current) => ({ ...current, priceValue: Number(event.target.value) }))}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                  />
+                    <option value="active">Aktif</option>
+                    <option value="draft">Draf</option>
+                    <option value="archived">Diarsipkan</option>
+                  </select>
                 </div>
                 <div>
-                  <label htmlFor="product-compare-price" className="mb-1 block">Harga sebelum diskon (IDR)</label>
-                  <input
-                    id="product-compare-price"
-                    type="number"
-                    min="0"
-                    step="1000"
-                    value={formData.compareAtPriceValue}
-                    onChange={(event) => setFormData((current) => ({ ...current, compareAtPriceValue: Number(event.target.value) }))}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div>
-                  <label htmlFor="product-weight" className="mb-1 block">Berat (gram)</label>
-                  <input
-                    id="product-weight"
-                    type="number"
-                    required
-                    min="1"
-                    step="1"
-                    value={formData.weightGrams}
-                    onChange={(event) => setFormData((current) => ({ ...current, weightGrams: Number(event.target.value) }))}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="product-stock" className="mb-1 block">Jumlah stok</label>
+                  <label htmlFor="product-stock" className="mb-1 block text-xs font-bold text-slate-700">Jumlah stok unit</label>
                   <input
                     id="product-stock"
                     type="number"
@@ -560,139 +413,210 @@ export default function AdminProductsPage() {
                     step="1"
                     value={formData.stockQuantity}
                     onChange={(event) => setFormData((current) => ({ ...current, stockQuantity: Number(event.target.value) }))}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
+                  />
+                </div>
+              </section>
+
+              <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">SKU & GTIN Barcode</h2>
+                <div>
+                  <label htmlFor="product-sku" className="mb-1 block text-xs font-bold text-slate-700">Kode SKU</label>
+                  <input
+                    id="product-sku"
+                    type="text"
+                    required
+                    placeholder="DTA-PRODUK-001"
+                    value={formData.sku}
+                    onChange={(event) => setFormData((current) => ({ ...current, sku: event.target.value }))}
+                    className="w-full rounded-xl border border-slate-200 p-3 font-mono text-sm uppercase outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
                   />
                 </div>
                 <div>
-                  <label htmlFor="product-status" className="mb-1 block">Status produk</label>
-                  <select
-                    id="product-status"
-                    value={formData.status}
-                    onChange={(event) => setFormData((current) => ({ ...current, status: event.target.value as ProductStatus }))}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                  >
-                    <option value="active">Aktif</option>
-                    <option value="draft">Draf</option>
-                    <option value="archived">Diarsipkan</option>
-                  </select>
+                  <label htmlFor="product-gtin" className="mb-1 block text-xs font-bold text-slate-700">Barcode GTIN-13</label>
+                  <div className="flex gap-2">
+                    <input
+                      id="product-gtin"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]{13}"
+                      required
+                      value={formData.gtin}
+                      onChange={(event) => setFormData((current) => ({ ...current, gtin: event.target.value.replace(/\D/g, "").slice(0, 13) }))}
+                      className="min-w-0 flex-1 rounded-xl border border-slate-200 p-3 font-mono text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormData((current) => ({ ...current, gtin: generateGtin13() }))}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Acak
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </section>
 
-              <div>
-                <span className="mb-1 block">Gambar produk</span>
-                <button
-                  type="button"
-                  onClick={openImageModal}
-                  className="flex w-full items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/40"
-                >
-                  {formData.imageUrl ? (
-                    <img src={formData.imageUrl} alt="Pratinjau gambar produk" className="h-14 w-14 rounded-lg object-cover" />
-                  ) : (
-                    <span className="flex h-14 w-14 items-center justify-center rounded-lg bg-white text-slate-400 shadow-xs">
-                      <ImageIcon className="h-5 w-5" />
-                    </span>
-                  )}
-                  <span>
-                    <span className="block font-bold text-slate-800">Unggah atau pratinjau gambar</span>
-                    <span className="mt-0.5 block font-normal text-slate-500">Pilih berkas gambar atau masukkan URL.</span>
-                  </span>
-                </button>
-              </div>
-
-              <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setProductModalOpen(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700"
-                >
-                  {editingProductId ? "Simpan perubahan" : "Tambahkan produk"}
-                </button>
-              </div>
-            </form>
-          </div>
+              <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Pengiriman & Logistik</h2>
+                <div>
+                  <label htmlFor="product-weight" className="mb-1 block text-xs font-bold text-slate-700">Berat bersih (gram)</label>
+                  <input
+                    id="product-weight"
+                    type="number"
+                    required
+                    min="1"
+                    step="1"
+                    value={formData.weightGrams}
+                    onChange={(event) => setFormData((current) => ({ ...current, weightGrams: Number(event.target.value) }))}
+                    className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
+                  />
+                </div>
+              </section>
+            </div>
+          </form>
         </div>
-      )}
-
-      {imageModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="image-modal-title"
-            className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 id="image-modal-title" className="font-bold text-slate-900">Gambar produk</h2>
-                <p className="mt-0.5 text-xs text-slate-500">Unggah gambar dan periksa tampilannya sebelum digunakan.</p>
+      ) : (
+        <>
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600">
+                <Package className="h-4 w-4" />
+                <span>Katalog dan inventaris</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setImageModalOpen(false)}
-                aria-label="Tutup pratinjau gambar"
-                className="rounded-lg p-1 text-slate-400 hover:text-slate-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Produk</h1>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                Kelola data produk, barcode GTIN, harga, berat, dan stok dalam satu tempat.
+              </p>
             </div>
 
-            <div className="flex min-h-56 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-              {imageDraft ? (
-                <img src={imageDraft} alt="Pratinjau gambar yang dipilih" className="max-h-72 w-full object-contain" />
-              ) : (
-                <div className="text-center text-slate-400">
-                  <ImageIcon className="mx-auto h-10 w-10" />
-                  <p className="mt-2 text-xs font-semibold">Belum ada gambar dipilih</p>
-                </div>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={openAddForm}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-indigo-700"
+            >
+              <Plus className="h-4 w-4" />
+              Tambah produk
+            </button>
+          </div>
 
-            <div className="mt-4 space-y-3">
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100">
-                <Upload className="h-4 w-4" />
-                Unggah berkas gambar
-                <input type="file" accept="image/*" onChange={handleImageFileChange} className="sr-only" />
-              </label>
-              <div>
-                <label htmlFor="image-url" className="mb-1 block text-xs font-semibold text-slate-700">Atau gunakan URL gambar</label>
+          <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative max-w-md flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
-                  id="image-url"
-                  type="url"
-                  placeholder="https://contoh.id/gambar-produk.jpg"
-                  value={imageDraft.startsWith("data:") ? "" : imageDraft}
-                  onChange={(event) => setImageDraft(event.target.value)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  type="search"
+                  aria-label="Cari produk"
+                  placeholder="Cari nama produk, SKU, atau GTIN..."
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
+              <select
+                aria-label="Filter status produk"
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              >
+                <option value="all">Semua Status</option>
+                <option value="active">Aktif</option>
+                <option value="draft">Draf</option>
+                <option value="archived">Diarsipkan</option>
+              </select>
             </div>
-
-            <div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4">
-              <button
-                type="button"
-                onClick={() => setImageModalOpen(false)}
-                className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setFormData((current) => ({ ...current, imageUrl: imageDraft }));
-                  setImageModalOpen(false);
-                }}
-                className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700"
-              >
-                Gunakan gambar
-              </button>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    <th className="px-3 py-3">Produk</th>
+                    <th className="px-3 py-3">SKU dan GTIN</th>
+                    <th className="px-3 py-3">Berat</th>
+                    <th className="px-3 py-3 text-right">Harga</th>
+                    <th className="px-3 py-3">Stok</th>
+                    <th className="px-3 py-3">Status</th>
+                    <th className="px-3 py-3 text-right">Tindakan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredProducts.map((product) => (
+                    <tr key={product.id} className="transition-colors hover:bg-slate-50/50">
+                      <td className="px-3 py-3">
+                        <div className="flex min-w-52 items-center gap-3">
+                          {product.imageUrl ? (
+                            <img
+                              src={product.imageUrl}
+                              alt={`Gambar ${product.name}`}
+                              className="h-10 w-10 rounded-lg border border-slate-200 object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+                              <ImageIcon className="h-4 w-4" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-bold text-slate-900">{product.name}</p>
+                            <p className="font-mono text-[11px] text-slate-400">/{product.slug}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3">
+                        <p className="font-semibold text-slate-800">{product.sku}</p>
+                        <span className="mt-1 inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-[11px] text-slate-700">
+                          <Barcode className="h-3 w-3 text-slate-500" />
+                          {product.gtin}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 font-medium text-slate-600">{product.weightGrams} g</td>
+                      <td className="px-3 py-3 text-right font-bold text-slate-900">
+                        {IDR_FORMATTER.format(product.priceValue)}
+                        {product.compareAtPriceValue ? (
+                          <span className="block font-normal text-slate-400 line-through text-[10px]">
+                            {IDR_FORMATTER.format(product.compareAtPriceValue)}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-3 font-semibold text-slate-800">{product.stockQuantity}</td>
+                      <td className="px-3 py-3">
+                        <span
+                          className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                            product.status === "active"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : product.status === "draft"
+                                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                : "bg-slate-100 text-slate-600 border border-slate-200"
+                          }`}
+                        >
+                          {STATUS_LABELS[product.status]}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEditForm(product)}
+                            className="rounded-lg p-1.5 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"
+                            title="Edit produk"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteCandidate(product)}
+                            className="rounded-lg p-1.5 text-slate-500 hover:bg-rose-50 hover:text-rose-600"
+                            title="Hapus produk"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {deleteCandidate && (
