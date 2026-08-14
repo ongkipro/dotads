@@ -1,11 +1,13 @@
 # DotAds Engine v2 - Build & Verification Audit Log
 
-## Log Entry - 2026-08-14: Master Analysis, Page-by-Page Audit & Architectural Roadmap
-- **Action:** Conducted a comprehensive system-wide audit of DotAds Engine v2, evaluating all 25 Next.js admin routes, 4 API route groups, 2 Astro storefront pages, and 4 Web Component form runtime presets.
-- **Documentation:** Created `SYSTEM_WIDE_AUDIT_AND_ROADMAP.md` (and backed up to `~/Documents/work/prd/dotads/SYSTEM_WIDE_AUDIT_AND_ROADMAP.md`), detailing page inventories, RBAC roles, architectural trade-offs, and system simplification strategy.
-- **UI/UX Perfection:** Verified high-density Order Data Table controls, RTS risk tooltips, command search `⌘K`, multi-tenant selector, responsive builder canvas previews, and Shadow DOM form micro-interactions.
-- **Verification Result:** `pnpm test` passed 5/5 monorepo smoke test suites 100%. `pnpm build` completed clean (25/25 Next.js static pages, 2/2 Astro pages, TypeScript-clean API/form/integrations).
-- **Git Status:** 100% Synced on `main` branch.
+## Log Entry - 2026-08-14: Super Admin Control Plane & OpenAPI Platform Router Completion
+- **Action:** Completed Super Admin control plane architecture, specification (`SUPER_ADMIN_ARCHITECTURE.md`), OpenAPI sub-router (`/api/v1/platform/*`), and navigation UX streamlining into collapsible logical groups.
+- **OpenAPI Platform Endpoints:** Implemented `GET /stats` (fleet metrics & GMV aggregate), `GET /tenants` (fleet list), `POST /tenants` (provisioning), `PATCH /tenants/:id/status` (activate/suspend), `POST /tenants/:id/impersonate` (session token), and `GET /audit-logs`.
+- **Smoke Testing:** Created `scripts/smoke-platform.ts` and integrated it into the monorepo test suite (`pnpm test`).
+- **Verification Result:** `pnpm test` passed 5/5 monorepo smoke test suites 100%. `pnpm build` completed with 0 errors and 0 warnings across all 9 Turbo monorepo packages.
+- **GitHub Sync (`ongkipro/dotads`):** **100% Synced** on `main` branch.
+
+---
 
 ## Log Entry - 2026-08-14: System-wide Perfection & Dotfiles Alignment Pass
 - **Action:** Applied end-to-end dotfiles skills and architectural conventions across all 9 monorepo packages (`meta-ads-signal-engine`, `google-ads-signal-engine`, `tiktok-ads-signal-engine`, `mengantar-api`, `turnstile-spin`, `admin-product-ux`, `web-perf`, `native-first`).
@@ -14,6 +16,8 @@
 - **WebP Product Media:** Processed and converted 6 high-resolution product media assets to `.webp` format with custom gradient backgrounds and stored them in `apps/admin/public/images/products` and `apps/storefront/public/images/products`.
 - **Seeded Complete Dummy Dataset:** Executed database migrations and populated complete dummy dataset covering 3 Tenants, 3 Custom Domains, 6 Products with WebP media, 4 Form Presets, 5 WhatsApp Blur Leads, 5 Full Orders with RTS risk scores and Mengantar resi numbers, Outbox Events, and Immutable Audit Trail.
 - **Verification Result:** `pnpm test` passed 5/5 monorepo smoke test suites 100%. `pnpm build` completed with 0 errors and 0 warnings across all 9 Turbo monorepo packages.
+
+---
 
 ## Log Entry - 2026-08-14: Form Engine Presets Specification & Full Verification Audit
 - **Action:** Finalized and cross-linked the canonical Form Engine Presets Specification for `FULL` (1-Step COD), `HYBRID` (2-Step Progressive Checkout), `MIDDLE` (Compact 1.5-Step Direct Checkout), and `MINI` (2-Input WhatsApp Lead). Updated milestone and task records to the same four-preset contract.
