@@ -1,20 +1,19 @@
-"use client";
+import type { ReactNode } from "react";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { PlatformShell } from "@/components/PlatformShell";
+import { SessionUnavailable } from "@/components/SessionUnavailable";
+import { WorkspacePicker } from "@/components/WorkspacePicker";
+import { fetchSessionContext } from "@/lib/session-context";
 
-import React, { useState } from "react";
-import type { Role } from "@dotads/auth";
-import { AdminSidebar } from "@/components/AdminSidebar";
+export default async function SuperAdminLayout({ children }: { children: ReactNode }) {
+  const cookieHeader = (await cookies()).toString();
+  const session = await fetchSessionContext(cookieHeader);
 
-export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
-  const [role, setRole] = useState<Role>("SUPER_ADMIN");
+  if (session.status === "unauthenticated") redirect("/login");
+  if (session.status === "workspace_selection_required") return <WorkspacePicker />;
+  if (session.status === "unavailable") return <SessionUnavailable message={session.message} />;
+  if (session.context.role !== "SUPER_ADMIN") redirect("/admin");
 
-  return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-900">
-      <AdminSidebar currentRole={role} onRoleChange={setRole} />
-      <main className="flex-1 overflow-y-auto w-full">
-        <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
-          {children}
-        </div>
-      </main>
-    </div>
-  );
+  return <PlatformShell userEmail={session.context.userEmail}>{children}</PlatformShell>;
 }

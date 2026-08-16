@@ -56,10 +56,10 @@ export default function RegisterPage() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        throw new Error(data.error || data.message || "Failed to register. Please check your inputs.");
+        throw new Error(data.error || data.message || "Pendaftaran gagal. Periksa kembali data yang dimasukkan.");
       }
 
-      router.push("/admin");
+      router.replace("/");
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -72,9 +72,9 @@ export default function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 p-4 py-12">
       <Card className="w-full max-w-lg">
         <CardHeader className="space-y-2 text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight">Create your Store</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight">Buat toko Anda</CardTitle>
           <CardDescription>
-            Onboard your merchant account to start selling
+            Siapkan akun merchant untuk mulai mengelola penjualan
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -88,7 +88,7 @@ export default function RegisterPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="storeName">Store Name</Label>
+                <Label htmlFor="storeName">Nama toko</Label>
                 <Input
                   id="storeName"
                   placeholder="Acme Co."
@@ -99,7 +99,7 @@ export default function RegisterPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="storeSlug">Store Slug</Label>
+                <Label htmlFor="storeSlug">Slug toko</Label>
                 <Input
                   id="storeSlug"
                   placeholder="acme-co"
@@ -115,7 +115,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="ownerName">Owner Full Name</Label>
+              <Label htmlFor="ownerName">Nama lengkap pemilik</Label>
               <Input
                 id="ownerName"
                 placeholder="John Doe"
@@ -140,7 +140,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Kata sandi</Label>
               <Input
                 id="password"
                 type="password"
@@ -153,15 +153,15 @@ export default function RegisterPage() {
             
             <Button className="w-full" type="submit" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Register Merchant
+              Daftarkan merchant
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
           <div className="text-sm text-center text-gray-500 dark:text-gray-400">
-            Already have an account?{" "}
+            Sudah memiliki akun?{" "}
             <Link href="/login" className="text-black dark:text-white hover:underline font-medium">
-              Sign In
+              Masuk
             </Link>
           </div>
         </CardFooter>

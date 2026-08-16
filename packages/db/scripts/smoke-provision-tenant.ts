@@ -1,5 +1,5 @@
 import { provisionTenantTransaction } from "../src/services/provisioning.ts";
-import { db, client } from "../src/client.ts";
+import { client, migrationDb, migrationClient } from "../src/client.ts";
 import * as schema from "../src/schema/index.ts";
 import { eq } from "drizzle-orm";
 import assert from "node:assert";
@@ -43,11 +43,12 @@ async function runProvisionTenantSmoke() {
   assert.notStrictEqual(res3.tenant.id, res1.tenant.id, "New key MUST create a distinct tenant!");
 
   // 4. Clean up test data
-  await db.delete(schema.tenants).where(eq(schema.tenants.id, res1.tenant.id));
-  await db.delete(schema.tenants).where(eq(schema.tenants.id, res3.tenant.id));
+  await migrationDb.delete(schema.tenants).where(eq(schema.tenants.id, res1.tenant.id));
+  await migrationDb.delete(schema.tenants).where(eq(schema.tenants.id, res3.tenant.id));
 
   console.log("TRANSACTIONAL TENANT PROVISIONING SMOKE VERIFICATION PASSED!");
   await client.end();
+  await migrationClient.end();
 }
 
 runProvisionTenantSmoke().catch((err: unknown) => {

@@ -1,7 +1,7 @@
 # DotAds Engine v2 — Mengantar API Integration & Logistics Specification
 
 **Document Version:** 2.0.0  
-**Status:** APPROVED FOR IMPLEMENTATION  
+**Status:** Target contract; official provider contract revalidation and non-live integration evidence are required
 **System Target:** DotAds Engine v2 (Hono API Backend + Bun Worker + Drizzle ORM + PostgreSQL)  
 **Target Aggregator:** Mengantar API (Indonesian 3PL Logistics: JNE, SiCepat, SAP Express, J&T Express, Ninja Xpress, IDExpress, Lion Parcel, Anteraja)  
 
@@ -9,7 +9,20 @@
 
 ## 1. Executive Summary & Integration Topology
 
-The **Mengantar Logistics Engine** in DotAds Engine v2 provides automated 3PL shipping calculation, Cash On Delivery (COD) balance management, waybill (`cnote_no`) generation, label printing, and real-time webhook status synchronization.
+The target logistics engine covers shipping estimates, COD eligibility/remittance, dispatch, waybills, labels, and webhook reconciliation. Current code provides only part of that lifecycle; no claim of a complete location cache, latency target, label workflow, or live provider acceptance is made.
+
+> **Current boundary:** runtime routes and `openapi.yaml` own endpoint truth. Code examples and status lists below are target design until an approved Mengantar fixture/sandbox test proves them. Provider-specific URLs, headers, status mappings, limits, and credentials must be revalidated against official provider documentation before release.
+
+> **Observed 2026-08-17:** migration `0014` enforces unique non-null waybill ownership and a least-privilege exact resolver. The signed webhook smoke verifies HMAC rejection, strict payloads, tenant-safe waybill resolution, duplicate/out-of-order behavior, coherent COD delivery state, and one Purchase eligibility transition. Live Mengantar delivery, official sandbox acceptance, provider waybill assignment, RTS/remittance, and operator recovery remain **UNVERIFIED**.
+
+### Observed Backend Boundary — 2026-08-16
+
+- `POST /api/v1/admin/orders/{id}/dispatch` validates tenant, permission, order/payment/fulfillment eligibility, and existing queue state, then queues work; it does not call Mengantar inline.
+- Migration `0007_unique_dispatch_queue_order.sql` fails if duplicate tenant/order queue rows already exist and then enforces one mutable dispatch row per `(tenant_id, order_id)`.
+- The worker conditionally claims pending rows and writes dispatch completion or retry/DLQ state together with order events and actor-preserving audit rows. Test mode uses an explicit mock waybill and performs no live provider call.
+- The verified smoke covers idempotent enqueue, active-dispatch cancellation denial, explicit DLQ recovery requirement, worker completion, canonical order axes, integer IDR, and audit/event creation.
+- Real merchant Chrome at 1280/768/390 verified development-safe enqueue persistence after reload (`pending`, `attempts: 0`, `DISPATCH_QUEUED`) and a real `409` for an already-shipped order, with no synthetic waybill or provider request. Empty/error/no-results states were not browser-forced.
+- Official request/response revalidation, approved provider fixture/sandbox acceptance, operator replay/recovery, and RTS/remittance remain **Unknown or unverified**. The broader design below remains target-only where it exceeds this observed boundary.
 
 ```mermaid
 flowchart TD

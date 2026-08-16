@@ -1,12 +1,32 @@
-import { db, schema } from "@dotads/db";
+import { migrationDb as db, schema } from "@dotads/db";
 import { eq } from "drizzle-orm";
 import assert from "node:assert";
+
+function errorChainIncludes(error: unknown, expected: string): boolean {
+  const seen = new Set<unknown>();
+  let current = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    if ("message" in current && String(current.message).includes(expected)) return true;
+    current = "cause" in current ? current.cause : undefined;
+  }
+  return false;
+}
 
 async function runAuditLogSmoke() {
   console.log("Starting Immutable Audit Logging Smoke Test...");
 
-  const [tenant] = await db.select().from(schema.tenants);
-  assert.ok(tenant, "Tenant must exist from seed");
+  let [tenant] = await db.select().from(schema.tenants).limit(1);
+  if (!tenant) {
+    [tenant] = await db
+      .insert(schema.tenants)
+      .values({
+        name: "Audit Smoke Tenant",
+        slug: `audit-smoke-${Date.now()}`,
+      })
+      .returning();
+  }
+  assert.ok(tenant, "Audit smoke must have a tenant fixture");
 
   const action = "domain.verified";
 
@@ -36,6 +56,22 @@ async function runAuditLogSmoke() {
     .where(eq(schema.auditLogs.tenantId, tenant.id));
 
   assert.ok(logs.length > 0, "Audit logs must contain inserted record");
+
+  // Database enforcement, not application convention, must reject mutation.
+  await assert.rejects(
+    db.update(schema.auditLogs).set({ action: "tampered" }).where(eq(schema.auditLogs.id, log.id)),
+    (error) => errorChainIncludes(error, "audit_logs is append-only")
+  );
+  await assert.rejects(
+    db.delete(schema.auditLogs).where(eq(schema.auditLogs.id, log.id)),
+    (error) => errorChainIncludes(error, "audit_logs is append-only")
+  );
+
+  const [preserved] = await db
+    .select()
+    .from(schema.auditLogs)
+    .where(eq(schema.auditLogs.id, log.id));
+  assert.strictEqual(preserved.action, action, "Rejected mutations must preserve the original audit record");
 
   console.log("IMMUTABLE AUDIT LOGGING SMOKE TEST PASSED!");
   process.exit(0);

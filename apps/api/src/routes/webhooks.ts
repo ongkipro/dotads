@@ -1,208 +1,159 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { db, schema } from "@dotads/db";
-import { eq } from "drizzle-orm";
-import crypto from "node:crypto";
-import { reconcilePaymentStatus, verifyAutoLarisSignature } from "@dotads/integrations";
+import {
+  resolveAutoLarisPaymentTenant,
+  resolveOrderTenantByWaybill,
+  withDatabaseContext,
+  type DatabaseSessionContext,
+} from "@dotads/db";
+import {
+  enqueuePurchaseEvents,
+  reconcileMengantarStatus,
+  reconcilePaymentStatus,
+  verifyAutoLarisSignature,
+} from "@dotads/integrations";
 
 export const webhooksRouter = new OpenAPIHono();
 
-// Mengantar Logistics Tracking & Status Callback
+const ErrorSchema = z.object({ error: z.string().max(255) }).strict();
+const SuccessSchema = z.object({ status: z.literal("success") }).strict();
+const TrackingEntrySchema = z.object({
+  status: z.string().trim().min(1).max(50),
+  timestamp: z.string().trim().min(1).max(64).optional(),
+  description: z.string().trim().min(1).max(500).optional(),
+}).strict();
+const MengantarWebhookSchema = z.object({
+  waybill_number: z.string().trim().min(1).max(100),
+  status: z.enum(["ON_PROCESS", "IN_TRANSIT", "DELIVERED", "RETURNED", "FAILED"]),
+  tracking_history: z.array(TrackingEntrySchema).max(20).optional(),
+}).strict();
+const AutoLarisWebhookSchema = z.object({
+  transaction_id: z.string().trim().min(1).max(255),
+  order_id: z.string().uuid(),
+  status: z.enum(["PAID", "SUCCESS", "EXPIRED", "FAILED"]),
+  amount: z.number().int().nonnegative().max(2_147_483_647),
+}).strict();
+
+function webhookDatabaseContext(tenantId: string, provider: string): DatabaseSessionContext {
+  return {
+    userId: `webhook:${provider}`,
+    userEmail: `${provider}@webhook.dotads.invalid`,
+    tenantId,
+    organizationId: "",
+    role: "END_BUYER",
+    tenantName: "",
+    tenantStatus: "active",
+  };
+}
+
+function parseSignedJson<T>(rawBody: string, schema: z.ZodType<T>): T | null {
+  try {
+    const parsed: unknown = JSON.parse(rawBody);
+    const result = schema.safeParse(parsed);
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
+webhooksRouter.use("/mengantar", async (c, next) => {
+  const secret = process.env.MENGANTAR_WEBHOOK_SECRET;
+  if (!secret) return c.json({ error: "Mengantar webhook verification is not configured" }, 503);
+  const signature = c.req.header("x-mengantar-signature");
+  const rawBody = await c.req.text();
+  if (!signature || !verifyAutoLarisSignature(rawBody, signature, secret)) {
+    return c.json({ error: "Invalid or missing HMAC signature" }, 401);
+  }
+  return next();
+});
+
+webhooksRouter.use("/autolaris", async (c, next) => {
+  const secret = process.env.AUTOLARIS_SECRET;
+  if (!secret) return c.json({ error: "Payment webhook verification is not configured" }, 503);
+  const signature = c.req.header("x-autolaris-signature") || c.req.header("x-signature");
+  const rawBody = await c.req.text();
+  if (!signature || !verifyAutoLarisSignature(rawBody, signature, secret)) {
+    return c.json({ error: "Invalid or missing HMAC signature" }, 401);
+  }
+  return next();
+});
+
 webhooksRouter.openapi(
   createRoute({
     method: "post",
     path: "/mengantar",
-    summary: "Mengantar Logistics Status Webhook Callback",
-    request: {
-      body: {
-        content: {
-          "application/json": {
-            schema: z.object({
-              waybill_number: z.string(),
-              status: z.string(),
-              tracking_history: z.array(z.record(z.unknown())).optional(),
-            }),
-          },
-        },
-      },
-    },
+    summary: "Process a signed, bounded Mengantar fulfillment callback",
+    request: { body: { required: true, content: { "application/json": { schema: MengantarWebhookSchema } } } },
     responses: {
-      200: {
-        description: "Webhook processed",
-        content: {
-          "application/json": {
-            schema: z.object({ status: z.string() }),
-          },
-        },
-      },
-      400: {
-        description: "Missing parameters",
-        content: {
-          "application/json": {
-            schema: z.object({ error: z.string() }),
-          },
-        },
-      },
+      200: { description: "Callback accepted idempotently", content: { "application/json": { schema: SuccessSchema } } },
+      400: { description: "Invalid callback payload", content: { "application/json": { schema: ErrorSchema } } },
+      401: { description: "Invalid or missing signature", content: { "application/json": { schema: ErrorSchema } } },
+      404: { description: "Waybill not uniquely bound to an order", content: { "application/json": { schema: ErrorSchema } } },
+      503: { description: "Webhook verification is not configured", content: { "application/json": { schema: ErrorSchema } } },
     },
   }),
   async (c) => {
-    const body = await c.req.json();
-    const { waybill_number, status, tracking_history } = body;
+    const rawBody = await c.req.text();
+    const body = parseSignedJson(rawBody, MengantarWebhookSchema);
+    if (!body) return c.json({ error: "Invalid callback payload" }, 400);
 
-    if (!waybill_number || !status) {
-      return c.json({ error: "Missing waybill_number or status" }, 400);
-    }
-
-    const [order] = await db
-      .select()
-      .from(schema.orders)
-      .where(eq(schema.orders.cnoteNo, waybill_number));
-
-    if (order) {
-      const nextFulfillmentStatus =
-        status === "DELIVERED"
-          ? "DELIVERED"
-          : status === "ON_PROCESS" || status === "IN_TRANSIT"
-          ? "IN_TRANSIT"
-          : "PROCESSING";
-
-      await db
-        .update(schema.orders)
-        .set({
-          fulfillmentStatus: nextFulfillmentStatus,
-          updatedAt: new Date().toISOString(),
-        })
-        .where(eq(schema.orders.id, order.id));
-
-      await db.insert(schema.orderEvents).values({
-        tenantId: order.tenantId,
-        orderId: order.id,
-        event: `COURIER_${status}`,
-        actor: "SYSTEM_MENGANTAR_WEBHOOK",
-        metadataJson: { waybill_number, tracking_history: tracking_history || [] },
+    const tenantId = await resolveOrderTenantByWaybill(body.waybill_number);
+    if (!tenantId) return c.json({ error: "Waybill not found" }, 404);
+    const latest = body.tracking_history?.at(-1);
+    const result = await withDatabaseContext(webhookDatabaseContext(tenantId, "mengantar"), async () => {
+      const reconciled = await reconcileMengantarStatus({
+        tenantId,
+        waybillNumber: body.waybill_number,
+        status: body.status,
+        trackingSummary: {
+          count: body.tracking_history?.length ?? 0,
+          ...(latest?.status ? { latestStatus: latest.status } : {}),
+          ...(latest?.timestamp ? { latestTimestamp: latest.timestamp } : {}),
+          ...(latest?.description ? { latestDescription: latest.description } : {}),
+        },
       });
-    }
-
-    return c.json({ status: "success" }, 200);
+      if (reconciled.purchaseEligible && reconciled.orderId) {
+        await enqueuePurchaseEvents(reconciled.orderId);
+      }
+      return reconciled;
+    });
+    if (result.outcome === "not_found") return c.json({ error: "Waybill not found" }, 404);
+    return c.json({ status: "success" as const }, 200);
   }
 );
 
-// AutoLaris Payment Callback H2H Endpoint
 webhooksRouter.openapi(
   createRoute({
     method: "post",
     path: "/autolaris",
-    summary: "AutoLaris H2H Payment Callback Webhook",
-    request: {
-      body: {
-        content: {
-          "application/json": {
-            schema: z.object({
-              transaction_id: z.string().optional(),
-              order_id: z.string(),
-              status: z.string(),
-              amount: z.number().optional(),
-            }),
-          },
-        },
-      },
-    },
+    summary: "Process a signed, financially bound AutoLaris callback",
+    request: { body: { required: true, content: { "application/json": { schema: AutoLarisWebhookSchema } } } },
     responses: {
-      200: {
-        description: "Payment callback processed idempotently",
-        content: {
-          "application/json": {
-            schema: z.object({ status: z.string() }),
-          },
-        },
-      },
-      400: {
-        description: "Invalid HMAC signature or payload",
-        content: {
-          "application/json": {
-            schema: z.object({ error: z.string() }),
-          },
-        },
-      },
-      404: {
-        description: "Order not found",
-        content: {
-          "application/json": {
-            schema: z.object({ error: z.string() }),
-          },
-        },
-      },
-      401: {
-        description: "Unauthorized: Invalid or missing HMAC signature",
-        content: {
-          "application/json": {
-            schema: z.object({ error: z.string() }),
-          },
-        },
-      },
-      500: {
-        description: "Server error",
-        content: {
-          "application/json": {
-            schema: z.object({ error: z.string() }),
-          },
-        },
-      },
+      200: { description: "Callback accepted idempotently", content: { "application/json": { schema: SuccessSchema } } },
+      400: { description: "Invalid callback payload", content: { "application/json": { schema: ErrorSchema } } },
+      401: { description: "Invalid or missing signature", content: { "application/json": { schema: ErrorSchema } } },
+      404: { description: "Bound payment transaction not found", content: { "application/json": { schema: ErrorSchema } } },
+      409: { description: "Order is terminal and cannot be revived", content: { "application/json": { schema: ErrorSchema } } },
+      503: { description: "Webhook verification is not configured", content: { "application/json": { schema: ErrorSchema } } },
     },
   }),
   async (c) => {
-    const rawBodyText = await c.req.text();
-    const signatureHeader = c.req.header("x-autolaris-signature") || c.req.header("x-signature");
+    const rawBody = await c.req.text();
+    const body = parseSignedJson(rawBody, AutoLarisWebhookSchema);
+    if (!body) return c.json({ error: "Invalid callback payload" }, 400);
 
-    if (!signatureHeader) {
-      return c.json({ error: "Unauthorized: Missing HMAC signature header" }, 401);
-    }
-
-    let body: any;
-    try {
-      body = JSON.parse(rawBodyText);
-    } catch {
-      return c.json({ error: "Invalid JSON payload" }, 400);
-    }
-
-    const { transaction_id, order_id, status, amount } = body;
-
-    if (!order_id || !status) {
-      return c.json({ error: "Missing required callback parameters" }, 400);
-    }
-
-    const [order] = await db
-      .select()
-      .from(schema.orders)
-      .where(eq(schema.orders.id, order_id));
-
-    if (!order) {
-      return c.json({ error: "Order not found" }, 404);
-    }
-
-    if (amount && Number(amount) !== order.totalMinor) {
-      console.warn(`[AutoLaris Webhook] Amount mismatch for order ${order.id}: expected ${order.totalMinor}, got ${amount}`);
-      return c.json({ error: "Financial payload mismatch" }, 400);
-    }
-
-    // Verify HMAC Signature against tenant's AutoLaris API Secret
-    const [config] = await db
-      .select()
-      .from(schema.autolarisConfigs)
-      .where(eq(schema.autolarisConfigs.tenantId, order.tenantId));
-
-    const secret = config?.apiSecret || process.env.AUTOLARIS_SECRET;
-    if (!secret) {
-      return c.json({ error: "Tenant payment secret not configured" }, 500);
-    }
-
-    const isValidSignature = verifyAutoLarisSignature(rawBodyText, signatureHeader, secret);
-    if (!isValidSignature) {
-      return c.json({ error: "Invalid HMAC signature" }, 401);
-    }
-
-    // Reconcile payment status idempotently
-    await reconcilePaymentStatus(transaction_id || `tx_${order.id}`, status);
-
-    return c.json({ status: "success" }, 200);
+    const tenantId = await resolveAutoLarisPaymentTenant(body.transaction_id, body.order_id, body.amount);
+    if (!tenantId) return c.json({ error: "Payment transaction not found" }, 404);
+    const result = await withDatabaseContext(webhookDatabaseContext(tenantId, "autolaris"), () =>
+      reconcilePaymentStatus({
+        tenantId,
+        transactionId: body.transaction_id,
+        orderId: body.order_id,
+        amountMinor: body.amount,
+        status: body.status,
+      })
+    );
+    if (result.outcome === "not_found") return c.json({ error: "Payment transaction not found" }, 404);
+    if (result.outcome === "conflict") return c.json({ error: "Order is terminal" }, 409);
+    return c.json({ status: "success" as const }, 200);
   }
 );

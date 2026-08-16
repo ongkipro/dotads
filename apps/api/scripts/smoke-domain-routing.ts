@@ -1,4 +1,4 @@
-import { db, schema } from "@dotads/db";
+import { migrationDb as db, schema } from "@dotads/db";
 import { eq } from "drizzle-orm";
 import assert from "node:assert";
 

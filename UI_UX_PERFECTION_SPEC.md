@@ -1,5 +1,7 @@
 # DotAds Engine v2 — UI/UX & System Perfection Specification
 
+> **Historical/superseded record — 2026-08-16.** This aspirational specification is superseded as an owner. Use `PRD.md`, `UI-UX-DESIGN-SYSTEM.md`, relevant feature specifications, and `TASKS.md`.
+
 > **Status:** Canonical Specification  
 > **Target Audience:** Full-Stack Engineers, AI Coding Agents, UX Designers  
 > **Target Surfaces:** `<dotads-form>` Shadow DOM Runtime, Next.js 15 Admin Workspace, Astro 5 Storefront, Hono OpenAPI Headless API  

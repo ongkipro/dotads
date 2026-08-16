@@ -1,5 +1,7 @@
 # Frontend Architecture & UI/UX Audit Report
 
+> **Historical/superseded record — 2026-08-16.** This audit is not a current source of product, design, task, or release truth. Use `PRD.md`, `UI-UX-DESIGN-SYSTEM.md`, `TASKS.md`, `STATUS.md`, and `BUILD-LOG.md`.
+
 ## 1. Admin Dashboard UI/UX, Responsive Behavior, & Dark Mode
 **UI/UX Consistency:**
 The Admin dashboard demonstrates a high level of UI/UX maturity. Components like `OrderDataTable` and `AnalyticsOverview` utilize a clean, modern aesthetic with robust empty states, clear visual hierarchy, and polished CRM features (e.g., WhatsApp dynamic templates). The usage of `lucide-react` for iconography and Tailwind CSS for styling creates a cohesive design system. 

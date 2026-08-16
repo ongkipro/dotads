@@ -1,9 +1,9 @@
 # DotAds Engine v2 — Form Engine & Preset Contracts Specification
 
-> **Status:** Canonical Specification  
+> **Status:** Canonical target behavior for the four presets; runtime/persistence evidence remains governed by `STATUS.md` and `BUILD-LOG.md`
 > **Target Audience:** Frontend Engineers, AI Coding Agents, UX Designers  
 > **Supported Presets:** `FULL` (1-Step COD), `HYBRID` (2-Step Progressive Checkout), `MIDDLE` (Compact 1.5-Step Direct Checkout), `MINI` (2-Input WA Lead)  
-> **Runtime Target:** `<dotads-form>` Shadow DOM Web Component, Astro SSR Storefront, Next.js Admin Builder Canvas  
+> **Runtime Target:** `<dotads-form>` Shadow DOM Web Component, Astro storefront, Next.js Admin Builder Canvas
 
 ---
 

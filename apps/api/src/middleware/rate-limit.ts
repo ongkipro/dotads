@@ -19,8 +19,8 @@ if (typeof setInterval !== "undefined") {
 
 export async function rateLimitMiddleware(c: Context, next: Next) {
   const ip = c.req.header("cf-connecting-ip") || c.req.header("x-real-ip") || c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
-  const tenantId = c.req.header("host") || "global";
-  const rateKey = `${tenantId}:${ip}`;
+  const routeGroup = c.req.path.split("/").slice(0, 4).join("/") || "global";
+  const rateKey = `${routeGroup}:${ip}`;
   const now = Date.now();
   const windowMs = 60 * 1000; // 1 minute
   const maxRequests = 120; // 120 requests per minute per IP/Tenant

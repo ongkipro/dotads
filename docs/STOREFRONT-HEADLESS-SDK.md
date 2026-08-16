@@ -1,5 +1,7 @@
 # DotAds Engine v2 — Headless Storefront & SDK Integration Guide
 
+> **Status: Target consumer guide; implementation is partial.** The generated `/api/v1/openapi.json` and committed `openapi.yaml` snapshot own current endpoint truth. `STATUS.md` records that public catalog/config/regions/lead surfaces still include hardcoded stubs and provider delivery is unverified. Examples below must not be interpreted as deployed behavior.
+
 This specification provides the turnkey API contract, draft-lead protocol, and ad-attribution rules for developers building **Custom Headless Frontends** (Next.js, Remix, SvelteKit, Astro, Nuxt, Mobile Apps, or Custom Web) connected to DotAds Engine v2.
 
 ---
@@ -14,8 +16,8 @@ Custom storefronts interact with the **Hono Headless API** (`https://api.namadom
 | `/api/v1/public/products/:slug` | `GET` | Fetch single product details with GTIN, stock, & variant matrix |
 | `/api/v1/public/regions/search` | `GET` | Fast Kecamatan autocomplete (<15ms) via pre-seeded GIN Trigram DB |
 | `/api/v1/public/shipping/rates` | `POST` | Calculate live Mengantar 3PL rates + fallback zone fee adjustments |
-| `/api/v1/public/orders/draft-lead` | `POST` | **Abandoned Order Safety Net:** Capture draft lead (Name + Phone) instantly |
-| `/api/v1/public/orders` | `POST` | Create full order $ightarrow$ Auto-push to Mengantar 3PL $ightarrow$ Fire Meta/Google/TikTok CAPI |
+| `/api/v1/public/leads/draft` | `POST` | Draft-lead boundary; persistence remains a release task |
+| `/api/v1/public/orders` | `POST` | Create a server-priced order and stage eligible downstream work; this does not prove provider delivery or immediate Purchase emission |
 
 ---
 

@@ -1,5 +1,7 @@
 # Tokophi Engineering & UI/UX Perfection Specification
 
+> **Historical/superseded record — 2026-08-16.** This aspirational specification is superseded as an owner. Use `PRD.md`, `UI-UX-DESIGN-SYSTEM.md`, relevant feature specifications, and `TASKS.md`.
+
 **Target:** DotAds Engine v2 + Tokophi Direct-Response Commerce Architecture  
 **Goal:** Deliver a world-class, high-converting, resilient, accessible, and sub-second direct-response ecommerce experience for high-volume Indonesian ad traffic.
 

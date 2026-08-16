@@ -1,661 +1,87 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
-import {
-  ArrowLeft,
-  Barcode,
-  CheckCircle2,
-  Edit,
-  Image as ImageIcon,
-  Package,
-  Plus,
-  RefreshCw,
-  Search,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { FormEvent, useEffect, useState } from "react";
+import { AlertCircle, Archive, Barcode, ChevronLeft, ChevronRight, Image as ImageIcon, PackageOpen, Pencil, Plus, RefreshCw, Search, Upload } from "lucide-react";
+import { validateGtinChecksum } from "@dotads/contracts";
+import { CatalogError, archiveCatalogProduct, createCatalogProduct, listCatalogProducts, updateCatalogProduct, type CatalogPage, type CatalogProduct, type ProductInput, type ProductStatus } from "@/lib/catalog-products";
+import { parseSessionContext } from "@/lib/session-context";
 
-type ProductStatus = "active" | "draft" | "archived";
-
-interface ProductItem {
-  id: string;
-  name: string;
-  slug: string;
-  sku: string;
-  gtin: string;
-  weightGrams: number;
-  stockQuantity: number;
-  priceValue: number;
-  compareAtPriceValue?: number;
-  status: ProductStatus;
-  imageUrl?: string;
-}
-
-interface ProductFormState {
-  name: string;
-  slug: string;
-  sku: string;
-  gtin: string;
-  weightGrams: number;
-  stockQuantity: number;
-  priceValue: number;
-  compareAtPriceValue: number;
-  status: ProductStatus;
-  imageUrl: string;
-}
-
-const INITIAL_PRODUCTS: ProductItem[] = [
-  {
-    id: "prod_1",
-    name: "Gawai Premium Alpha",
-    slug: "gawai-premium-alpha",
-    sku: "DTA-GPA-001",
-    gtin: "8991234567890",
-    weightGrams: 750,
-    stockQuantity: 142,
-    priceValue: 270000,
-    compareAtPriceValue: 499000,
-    status: "active",
-    imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
-  },
-  {
-    id: "prod_2",
-    name: "Bantal Ergonomis Ultra",
-    slug: "bantal-ergonomis-ultra",
-    sku: "DTA-BEU-002",
-    gtin: "8991234567891",
-    weightGrams: 1200,
-    stockQuantity: 89,
-    priceValue: 185000,
-    compareAtPriceValue: 250000,
-    status: "active",
-    imageUrl: "https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?w=600",
-  },
-  {
-    id: "prod_3",
-    name: "Jam Pintar V2 Edisi Kebugaran",
-    slug: "jam-pintar-v2",
-    sku: "DTA-JPV2-003",
-    gtin: "8991234567892",
-    weightGrams: 350,
-    stockQuantity: 0,
-    priceValue: 450000,
-    status: "draft",
-    imageUrl: "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=600",
-  },
-];
-
-const EMPTY_FORM: ProductFormState = {
-  name: "",
-  slug: "",
-  sku: "",
-  gtin: "",
-  weightGrams: 500,
-  stockQuantity: 0,
-  priceValue: 0,
-  compareAtPriceValue: 0,
-  status: "active",
-  imageUrl: "",
-};
-
-const STATUS_LABELS: Record<ProductStatus, string> = {
-  active: "Aktif",
-  draft: "Draf",
-  archived: "Diarsipkan",
-};
-
-const IDR_FORMATTER = new Intl.NumberFormat("id-ID", {
-  style: "currency",
-  currency: "IDR",
-  maximumFractionDigits: 0,
-});
-
-const createSlug = (value: string) =>
-  value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-
-const generateGtin13 = () => {
-  const random = new Uint32Array(1);
-  crypto.getRandomValues(random);
-  const base = `899${String(random[0] % 1_000_000_000).padStart(9, "0")}`;
-  const weightedSum = base
-    .split("")
-    .reduce((sum, digit, index) => sum + Number(digit) * (index % 2 === 0 ? 1 : 3), 0);
-  const checkDigit = (10 - (weightedSum % 10)) % 10;
-  return `${base}${checkDigit}`;
-};
+const LIMIT = 25;
+const IDR = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
+const STATUS_LABEL: Record<ProductStatus, string> = { draft: "Draf", active: "Aktif", archived: "Diarsipkan" };
+const EMPTY_FORM = { name: "", slug: "", description: "", status: "draft" as ProductStatus, priceMinor: "", compareAtPriceMinor: "", weightGrams: "500", gtin: "", brand: "", imageUrl: "", variantTitle: "Default Title", sku: "", stockQuantity: "0" };
+type ProductForm = typeof EMPTY_FORM;
+const slugify = (value: string) => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const message = (cause: unknown) => cause instanceof Error ? cause.message : "Katalog belum dapat diproses. Coba lagi.";
+const toForm = (product: CatalogProduct): ProductForm => ({ name: product.name, slug: product.slug, description: product.description ?? "", status: product.status, priceMinor: String(product.priceMinor), compareAtPriceMinor: product.compareAtPriceMinor === null ? "" : String(product.compareAtPriceMinor), weightGrams: String(product.weightGrams), gtin: product.gtin ?? "", brand: product.brand ?? "", imageUrl: product.images[0] ?? "", variantTitle: product.primaryVariant?.title ?? "Default Title", sku: product.primaryVariant?.sku ?? "", stockQuantity: String(product.primaryVariant?.stockQuantity ?? 0) });
 
 export default function AdminProductsPage() {
-  const [products, setProducts] = useState<ProductItem[]>(INITIAL_PRODUCTS);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [viewMode, setViewMode] = useState<"list" | "form">("list");
-  const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [deleteCandidate, setDeleteCandidate] = useState<ProductItem | null>(null);
-  const [formData, setFormData] = useState<ProductFormState>(EMPTY_FORM);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const toastTimerRef = useRef<number | undefined>(undefined);
-  const filteredProducts = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
+  const [page, setPage] = useState<CatalogPage | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [queryInput, setQueryInput] = useState(""); const [query, setQuery] = useState("");
+  const [status, setStatus] = useState<ProductStatus | "">("");
+  const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null); const [reload, setReload] = useState(0);
+  const [editing, setEditing] = useState<CatalogProduct | "new" | null>(null); const [form, setForm] = useState<ProductForm>(EMPTY_FORM); const [saving, setSaving] = useState(false); const [formError, setFormError] = useState<string | null>(null);
+  const [archiveCandidate, setArchiveCandidate] = useState<CatalogProduct | null>(null); const [archiving, setArchiving] = useState(false); const [notice, setNotice] = useState<string | null>(null);
+  const [canMutate, setCanMutate] = useState(false);
 
-    return products.filter((product) => {
-      const matchesSearch =
-        !query ||
-        product.name.toLowerCase().includes(query) ||
-        product.sku.toLowerCase().includes(query) ||
-        product.gtin.includes(query);
-      const matchesStatus = statusFilter === "all" || product.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [products, searchTerm, statusFilter]);
-  const showToast = (message: string) => {
-    window.clearTimeout(toastTimerRef.current);
-    setToastMessage(message);
-    toastTimerRef.current = window.setTimeout(() => setToastMessage(null), 3000);
-  };
+  useEffect(() => { const controller = new AbortController(); setLoading(true); setError(null); listCatalogProducts({ limit: LIMIT, offset, query: query || undefined, status: status || undefined }, (input, init) => fetch(input, { ...init, signal: controller.signal })).then(setPage).catch((cause) => { if (!controller.signal.aborted) setError(message(cause)); }).finally(() => { if (!controller.signal.aborted) setLoading(false); }); return () => controller.abort(); }, [offset, query, status, reload]);
+  useEffect(() => { fetch("/api/v1/session", { credentials: "same-origin", cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((value: unknown) => { const session = parseSessionContext(value); setCanMutate(session?.role === "TENANT_OWNER" || session?.role === "ADMIN"); }).catch(() => setCanMutate(false)); }, []);
 
-  const openAddForm = () => {
-    setEditingProductId(null);
-    setFormData({ ...EMPTY_FORM, gtin: generateGtin13() });
-    setViewMode("form");
-  };
+  const startCreate = () => { setEditing("new"); setForm(EMPTY_FORM); setFormError(null); };
+  const startEdit = (product: CatalogProduct) => { setEditing(product); setForm(toForm(product)); setFormError(null); };
+  const input = (key: keyof ProductForm, value: string) => setForm((current) => ({ ...current, [key]: value }));
+  const submit = async (event: FormEvent) => { event.preventDefault(); setFormError(null); const price = Number(form.priceMinor), compare = form.compareAtPriceMinor === "" ? null : Number(form.compareAtPriceMinor), weight = Number(form.weightGrams), stock = Number(form.stockQuantity), gtin = form.gtin.trim() || null; if (![price, weight, stock].every(Number.isInteger) || price < 0 || weight < 1 || stock < 0 || (compare !== null && (!Number.isInteger(compare) || compare < price))) { setFormError("Harga, stok, dan berat harus berupa integer valid; harga pembanding tidak boleh lebih kecil dari harga jual."); return; } if (gtin && !validateGtinChecksum(gtin)) { setFormError("GTIN harus 8, 12, 13, atau 14 digit dengan checksum GS1 yang valid."); return; } const body: ProductInput = { name: form.name.trim(), slug: form.slug.trim(), description: form.description.trim() || null, status: form.status, priceMinor: price, compareAtPriceMinor: compare, weightGrams: weight, images: form.imageUrl.trim() ? [form.imageUrl.trim()] : [], gtin, brand: form.brand.trim() || null, primaryVariant: { title: form.variantTitle.trim() || "Default Title", sku: form.sku.trim() || null, stockQuantity: stock } }; setSaving(true); try { if (editing === "new") await createCatalogProduct(body); else if (editing) await updateCatalogProduct(editing.id, body, editing.updatedAt); setNotice(editing === "new" ? "Produk berhasil dibuat dan tersimpan." : "Perubahan produk berhasil disimpan."); setEditing(null); setReload((value) => value + 1); } catch (cause) { if (cause instanceof CatalogError && cause.code === "STALE_WRITE" && cause.current) { setEditing(cause.current); setFormError(`Produk berubah sejak form dibuka. Input lokal tetap di form. Data server terbaru: harga ${IDR.format(cause.current.priceMinor)}, stok ${cause.current.primaryVariant?.stockQuantity ?? "tanpa varian"}. Tinjau lalu simpan lagi untuk menerapkan input lokal di atas versi terbaru.`); } else setFormError(cause instanceof CatalogError && cause.status === 409 ? `Data katalog berkonflik: ${cause.message}` : message(cause)); } finally { setSaving(false); } };
+  const archiveProduct = async () => { if (!archiveCandidate) return; setArchiving(true); setError(null); try { const result = await archiveCatalogProduct(archiveCandidate.id, archiveCandidate.updatedAt); setNotice(result.alreadyArchived ? "Produk ini sudah diarsipkan sebelumnya." : "Produk berhasil diarsipkan."); setArchiveCandidate(null); setReload((value) => value + 1); } catch (cause) { setError(cause instanceof CatalogError && cause.code === "STALE_WRITE" ? "Produk berubah sejak dialog dibuka. Katalog telah dimuat ulang; tinjau data terbaru sebelum mengarsipkan." : cause instanceof CatalogError && cause.status === 409 ? `Produk tidak dapat diarsipkan: ${cause.message}` : message(cause)); setArchiveCandidate(null); setReload((value) => value + 1); } finally { setArchiving(false); } };
 
-  const openEditForm = (product: ProductItem) => {
-    setEditingProductId(product.id);
-    setFormData({
-      name: product.name,
-      slug: product.slug,
-      sku: product.sku,
-      gtin: product.gtin,
-      weightGrams: product.weightGrams,
-      stockQuantity: product.stockQuantity,
-      priceValue: product.priceValue,
-      compareAtPriceValue: product.compareAtPriceValue ?? 0,
-      status: product.status,
-      imageUrl: product.imageUrl ?? "",
-    });
-    setViewMode("form");
-  };
-  const handleImageFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      showToast("Pilih berkas gambar yang valid.");
-      event.target.value = "";
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setFormData((current) => ({ ...current, imageUrl: reader.result as string }));
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const slug = createSlug(formData.slug || formData.name);
-    const nextProduct: ProductItem = {
-      id: editingProductId ?? `prod_${Date.now()}`,
-      name: formData.name.trim(),
-      slug,
-      sku: formData.sku.trim().toUpperCase(),
-      gtin: formData.gtin.trim(),
-      weightGrams: formData.weightGrams,
-      stockQuantity: formData.stockQuantity,
-      priceValue: formData.priceValue,
-      compareAtPriceValue: formData.compareAtPriceValue || undefined,
-      status: formData.status,
-      imageUrl: formData.imageUrl || undefined,
-    };
-
-    if (editingProductId) {
-      setProducts((current) =>
-        current.map((product) => (product.id === editingProductId ? { ...product, ...nextProduct } : product)),
-      );
-      showToast("Perubahan produk berhasil disimpan.");
-    } else {
-      setProducts((current) => [nextProduct, ...current]);
-      showToast("Produk baru berhasil ditambahkan.");
-    }
-
-    setViewMode("list");
-  };
-  const confirmDelete = () => {
-    if (!deleteCandidate) return;
-    setProducts((current) => current.filter((product) => product.id !== deleteCandidate.id));
-    setDeleteCandidate(null);
-    showToast("Produk berhasil dihapus dari katalog.");
-  };
-
-  return (
-    <div className="space-y-6 pb-8">
-      {toastMessage && (
-        <div
-          role="status"
-          className="fixed right-5 top-5 z-[70] flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-xs font-semibold text-white shadow-2xl"
-        >
-          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      {viewMode === "form" ? (
-        <div className="space-y-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-4">
-            <div>
-              <button
-                type="button"
-                onClick={() => setViewMode("list")}
-                className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Kembali ke Katalog Produk
-              </button>
-              <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-                {editingProductId ? `Edit Produk: ${formData.name}` : "Tambah Produk Baru"}
-              </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Lengkapi rincian produk, harga, stok, gambar, dan informasi logistik untuk ditampilkan di toko.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setViewMode("list")}
-                className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
-              >
-                Batal
-              </button>
-              <button
-                type="submit"
-                form="product-full-form"
-                className="rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700"
-              >
-                {editingProductId ? "Simpan Perubahan" : "Terbitkan Produk"}
-              </button>
-            </div>
-          </div>
-
-          <form id="product-full-form" onSubmit={handleFormSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <div className="space-y-6 lg:col-span-2">
-              <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Informasi Produk</h2>
-                <div>
-                  <label htmlFor="product-name" className="mb-1 block text-xs font-bold text-slate-700">Nama produk</label>
-                  <input
-                    id="product-name"
-                    type="text"
-                    required
-                    placeholder="Contoh: Gawai Premium Alpha"
-                    value={formData.name}
-                    onChange={(event) => {
-                      const name = event.target.value;
-                      setFormData((current) => ({
-                        ...current,
-                        name,
-                        slug: editingProductId ? current.slug : createSlug(name),
-                      }));
-                    }}
-                    className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="product-slug" className="mb-1 block text-xs font-bold text-slate-700">Slug URL</label>
-                  <input
-                    id="product-slug"
-                    type="text"
-                    placeholder="gawai-premium-alpha"
-                    value={formData.slug}
-                    onChange={(event) => setFormData((current) => ({ ...current, slug: event.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 p-3 font-mono text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-                  />
-                </div>
-              </section>
-
-              <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Harga & Diskon</h2>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label htmlFor="product-price" className="mb-1 block text-xs font-bold text-slate-700">Harga jual (IDR)</label>
-                    <input
-                      id="product-price"
-                      type="number"
-                      required
-                      min="0"
-                      step="1000"
-                      value={formData.priceValue}
-                      onChange={(event) => setFormData((current) => ({ ...current, priceValue: Number(event.target.value) }))}
-                      className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="product-compare-price" className="mb-1 block text-xs font-bold text-slate-700">Harga sebelum diskon (IDR)</label>
-                    <input
-                      id="product-compare-price"
-                      type="number"
-                      min="0"
-                      step="1000"
-                      value={formData.compareAtPriceValue}
-                      onChange={(event) => setFormData((current) => ({ ...current, compareAtPriceValue: Number(event.target.value) }))}
-                      className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-                    />
-                  </div>
-                </div>
-              </section>
-
-              <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Gambar Produk</h2>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
-                    {formData.imageUrl ? (
-                      <img src={formData.imageUrl} alt="Pratinjau produk" className="h-40 w-40 rounded-xl border border-slate-200 object-cover shadow-sm" />
-                    ) : (
-                      <div className="flex h-32 w-32 items-center justify-center rounded-xl bg-slate-200 text-slate-400">
-                        <ImageIcon className="h-8 w-8" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-3">
-                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-xs font-bold text-indigo-700 transition-colors hover:bg-indigo-100">
-                      <Upload className="h-4 w-4" />
-                      Unggah berkas gambar
-                      <input type="file" accept="image/*" onChange={handleImageFileChange} className="sr-only" />
-                    </label>
-                    <div>
-                      <label htmlFor="image-url" className="mb-1 block text-xs font-bold text-slate-700">Atau masukkan URL gambar</label>
-                      <input
-                        id="image-url"
-                        type="url"
-                        placeholder="https://images.unsplash.com/..."
-                        value={formData.imageUrl}
-                        onChange={(event) => setFormData((current) => ({ ...current, imageUrl: event.target.value }))}
-                        className="w-full rounded-xl border border-slate-200 p-2.5 text-xs outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </section>
-            </div>
-
-            <div className="space-y-6">
-              <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Status & Inventaris</h2>
-                <div>
-                  <label htmlFor="product-status" className="mb-1 block text-xs font-bold text-slate-700">Status produk</label>
-                  <select
-                    id="product-status"
-                    value={formData.status}
-                    onChange={(event) => setFormData((current) => ({ ...current, status: event.target.value as ProductStatus }))}
-                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-                  >
-                    <option value="active">Aktif</option>
-                    <option value="draft">Draf</option>
-                    <option value="archived">Diarsipkan</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="product-stock" className="mb-1 block text-xs font-bold text-slate-700">Jumlah stok unit</label>
-                  <input
-                    id="product-stock"
-                    type="number"
-                    required
-                    min="0"
-                    step="1"
-                    value={formData.stockQuantity}
-                    onChange={(event) => setFormData((current) => ({ ...current, stockQuantity: Number(event.target.value) }))}
-                    className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-                  />
-                </div>
-              </section>
-
-              <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">SKU & GTIN Barcode</h2>
-                <div>
-                  <label htmlFor="product-sku" className="mb-1 block text-xs font-bold text-slate-700">Kode SKU</label>
-                  <input
-                    id="product-sku"
-                    type="text"
-                    required
-                    placeholder="DTA-PRODUK-001"
-                    value={formData.sku}
-                    onChange={(event) => setFormData((current) => ({ ...current, sku: event.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 p-3 font-mono text-sm uppercase outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="product-gtin" className="mb-1 block text-xs font-bold text-slate-700">Barcode GTIN-13</label>
-                  <div className="flex gap-2">
-                    <input
-                      id="product-gtin"
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]{13}"
-                      required
-                      value={formData.gtin}
-                      onChange={(event) => setFormData((current) => ({ ...current, gtin: event.target.value.replace(/\D/g, "").slice(0, 13) }))}
-                      className="min-w-0 flex-1 rounded-xl border border-slate-200 p-3 font-mono text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setFormData((current) => ({ ...current, gtin: generateGtin13() }))}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      Acak
-                    </button>
-                  </div>
-                </div>
-              </section>
-
-              <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Pengiriman & Logistik</h2>
-                <div>
-                  <label htmlFor="product-weight" className="mb-1 block text-xs font-bold text-slate-700">Berat bersih (gram)</label>
-                  <input
-                    id="product-weight"
-                    type="number"
-                    required
-                    min="1"
-                    step="1"
-                    value={formData.weightGrams}
-                    onChange={(event) => setFormData((current) => ({ ...current, weightGrams: Number(event.target.value) }))}
-                    className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-                  />
-                </div>
-              </section>
-            </div>
-          </form>
-        </div>
-      ) : (
-        <>
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-            <div>
-              <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600">
-                <Package className="h-4 w-4" />
-                <span>Katalog dan inventaris</span>
-              </div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Produk</h1>
-              <p className="mt-1 text-sm font-medium text-slate-500">
-                Kelola data produk, barcode GTIN, harga, berat, dan stok dalam satu tempat.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={openAddForm}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-indigo-700"
-            >
-              <Plus className="h-4 w-4" />
-              Tambah produk
-            </button>
-          </div>
-
-          <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="relative max-w-md flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="search"
-                  aria-label="Cari produk"
-                  placeholder="Cari nama produk, SKU, atau GTIN..."
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
-              </div>
-              <select
-                aria-label="Filter status produk"
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              >
-                <option value="all">Semua Status</option>
-                <option value="active">Aktif</option>
-                <option value="draft">Draf</option>
-                <option value="archived">Diarsipkan</option>
-              </select>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                    <th className="px-3 py-3">Produk</th>
-                    <th className="px-3 py-3">SKU dan GTIN</th>
-                    <th className="px-3 py-3">Berat</th>
-                    <th className="px-3 py-3 text-right">Harga</th>
-                    <th className="px-3 py-3">Stok</th>
-                    <th className="px-3 py-3">Status</th>
-                    <th className="px-3 py-3 text-right">Tindakan</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredProducts.map((product) => (
-                    <tr key={product.id} className="transition-colors hover:bg-slate-50/50">
-                      <td className="px-3 py-3">
-                        <div className="flex min-w-52 items-center gap-3">
-                          {product.imageUrl ? (
-                            <img
-                              src={product.imageUrl}
-                              alt={`Gambar ${product.name}`}
-                              className="h-10 w-10 rounded-lg border border-slate-200 object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
-                              <ImageIcon className="h-4 w-4" />
-                            </div>
-                          )}
-                          <div>
-                            <p className="font-bold text-slate-900">{product.name}</p>
-                            <p className="font-mono text-[11px] text-slate-400">/{product.slug}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3">
-                        <p className="font-semibold text-slate-800">{product.sku}</p>
-                        <span className="mt-1 inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-[11px] text-slate-700">
-                          <Barcode className="h-3 w-3 text-slate-500" />
-                          {product.gtin}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 font-medium text-slate-600">{product.weightGrams} g</td>
-                      <td className="px-3 py-3 text-right font-bold text-slate-900">
-                        {IDR_FORMATTER.format(product.priceValue)}
-                        {product.compareAtPriceValue ? (
-                          <span className="block font-normal text-slate-400 line-through text-[10px]">
-                            {IDR_FORMATTER.format(product.compareAtPriceValue)}
-                          </span>
-                        ) : null}
-                      </td>
-                      <td className="px-3 py-3 font-semibold text-slate-800">{product.stockQuantity}</td>
-                      <td className="px-3 py-3">
-                        <span
-                          className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                            product.status === "active"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              : product.status === "draft"
-                                ? "bg-amber-50 text-amber-700 border border-amber-200"
-                                : "bg-slate-100 text-slate-600 border border-slate-200"
-                          }`}
-                        >
-                          {STATUS_LABELS[product.status]}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-right">
-                        <div className="flex justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => openEditForm(product)}
-                            className="rounded-lg p-1.5 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"
-                            title="Edit produk"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteCandidate(product)}
-                            className="rounded-lg p-1.5 text-slate-500 hover:bg-rose-50 hover:text-rose-600"
-                            title="Hapus produk"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
-
-      {deleteCandidate && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="delete-product-title"
-            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
-          >
-            <div className="flex items-start gap-3">
-              <span className="rounded-xl bg-rose-50 p-2 text-rose-600">
-                <Trash2 className="h-5 w-5" />
-              </span>
-              <div>
-                <h2 id="delete-product-title" className="font-bold text-slate-900">Hapus produk?</h2>
-                <p className="mt-1 text-sm leading-relaxed text-slate-500">
-                  Produk <strong className="text-slate-700">{deleteCandidate.name}</strong> akan dihapus dari katalog. Tindakan ini tidak dapat dibatalkan.
-                </p>
-              </div>
-            </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setDeleteCandidate(null)}
-                className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={confirmDelete}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700"
-              >
-                Ya, hapus produk
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  if (editing) return <ProductEditor editing={editing} form={form} input={input} onSubmit={submit} onClose={() => setEditing(null)} saving={saving} error={formError} />;
+  const filtered = !!query || !!status;
+  return <div className="space-y-5 pb-8">
+    {notice && <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</div>}
+    <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-xs font-bold uppercase tracking-wide text-indigo-600">Katalog dan inventaris</p><h1 className="mt-1 text-2xl font-extrabold">Produk</h1><p className="mt-1 text-sm text-slate-500">Kelola produk, varian utama, harga IDR, stok, berat, dan GTIN tersimpan.</p>{!canMutate && <p className="mt-2 text-xs font-semibold text-amber-700">Mode baca saja: peran Anda tidak dapat mengubah katalog.</p>}</div>{canMutate && <button onClick={startCreate} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white"><Plus className="h-4 w-4" />Tambah produk</button>}</header>
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <form onSubmit={(event) => { event.preventDefault(); setOffset(0); setQuery(queryInput.trim()); }} className="grid gap-3 border-b border-slate-200 p-4 sm:grid-cols-[1fr_180px_auto] dark:border-slate-800"><label className="relative"><span className="sr-only">Cari produk</span><Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" /><input type="search" value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Nama, slug, atau GTIN" className="min-h-11 w-full rounded-lg border border-slate-300 pl-9 pr-3 text-sm" /></label><label><span className="sr-only">Filter status produk</span><select value={status} onChange={(event) => { setStatus(event.target.value as ProductStatus | ""); setOffset(0); }} className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"><option value="">Semua status</option><option value="draft">Draf</option><option value="active">Aktif</option><option value="archived">Diarsipkan</option></select></label><button className="min-h-11 rounded-lg bg-slate-900 px-5 text-sm font-bold text-white">Cari</button></form>
+      {loading ? <Skeleton /> : error ? <State icon={AlertCircle} title="Katalog belum dapat dimuat" detail={error}><button onClick={() => setReload((value) => value + 1)} className="min-h-11 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white"><RefreshCw className="mr-2 inline h-4 w-4" />Coba lagi</button></State> : page && page.items.length === 0 ? <State icon={PackageOpen} title={filtered ? "Tidak ada hasil" : "Belum ada produk"} detail={filtered ? "Ubah pencarian atau filter untuk melihat produk lain." : "Tambahkan produk pertama untuk mulai menyiapkan katalog toko."}>{filtered ? <button onClick={() => { setQuery(""); setQueryInput(""); setStatus(""); setOffset(0); }} className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-bold">Hapus filter</button> : canMutate ? <button onClick={startCreate} className="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white">Tambah produk</button> : null}</State> : page && <><div className="divide-y divide-slate-100 xl:hidden dark:divide-slate-800">{page.items.map((product) => <ProductCard key={product.id} product={product} edit={() => startEdit(product)} archive={() => setArchiveCandidate(product)} canMutate={canMutate} />)}</div><div className="hidden overflow-x-auto xl:block"><table className="w-full min-w-[900px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Produk</th><th className="px-4 py-3">SKU / GTIN</th><th className="px-4 py-3">Harga</th><th className="px-4 py-3">Stok / berat</th><th className="px-4 py-3">Status</th><th className="px-4 py-3"><span className="sr-only">Tindakan</span></th></tr></thead><tbody className="divide-y divide-slate-100">{page.items.map((product) => <ProductRow key={product.id} product={product} edit={() => startEdit(product)} archive={() => setArchiveCandidate(product)} canMutate={canMutate} />)}</tbody></table></div><Pagination page={page} setOffset={setOffset} /></>}
+    </section>
+    {archiveCandidate && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4"><div role="alertdialog" aria-modal="true" aria-labelledby="archive-title" className="w-full max-w-md rounded-xl bg-white p-5 shadow-2xl"><h2 id="archive-title" className="text-lg font-bold">Arsipkan {archiveCandidate.name}?</h2><p className="mt-2 text-sm text-slate-600">Produk tidak dihapus, tetapi tidak lagi aktif di katalog. Data dan riwayat tetap tersimpan.</p><div className="mt-5 flex gap-2"><button disabled={archiving} onClick={() => setArchiveCandidate(null)} className="min-h-11 flex-1 rounded-lg border border-slate-300 font-bold">Batal</button><button disabled={archiving} onClick={archiveProduct} className="min-h-11 flex-1 rounded-lg bg-amber-600 px-3 font-bold text-white disabled:opacity-50">{archiving ? "Mengarsipkan…" : "Ya, arsipkan"}</button></div></div></div>}
+  </div>;
 }
+
+function ProductEditor({ editing, form, input, onSubmit, onClose, saving, error }: { editing: CatalogProduct | "new"; form: ProductForm; input: (key: keyof ProductForm, value: string) => void; onSubmit: (event: FormEvent) => void; onClose: () => void; saving: boolean; error: string | null }) {
+  return <div className="space-y-5 pb-8">
+    <style jsx global>{`.input{min-height:44px;width:100%;border:1px solid #cbd5e1;border-radius:.5rem;padding:.625rem .75rem;background:#fff;font-size:.875rem;color:#0f172a;outline:none}.input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.18)}`}</style>
+    <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+      <div><button onClick={onClose} className="mb-2 inline-flex min-h-11 items-center gap-2 text-sm font-bold text-slate-600"><ChevronLeft className="h-4 w-4" />Kembali ke produk</button><h1 className="text-2xl font-extrabold">{editing === "new" ? "Tambah produk" : `Edit ${editing.name}`}</h1><p className="mt-1 text-sm text-slate-500">Simpan data produk dan satu varian utama secara atomik.</p></div>
+      <button form="catalog-product-form" disabled={saving} className="min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Menyimpan…" : editing === "new" ? "Simpan produk" : "Simpan perubahan"}</button>
+    </header>
+    {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
+    <form id="catalog-product-form" onSubmit={onSubmit} className="grid gap-5 lg:grid-cols-3">
+      <div className="space-y-5 lg:col-span-2">
+        <Panel title="Informasi produk">
+          <Field label="Nama produk"><input required maxLength={255} value={form.name} onChange={(event) => { input("name", event.target.value); if (editing === "new") input("slug", slugify(event.target.value)); }} className="input" /></Field>
+          <Field label="Slug URL"><input required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" value={form.slug} onChange={(event) => input("slug", event.target.value)} className="input font-mono" /></Field>
+          <Field label="Deskripsi"><textarea maxLength={20000} value={form.description} onChange={(event) => input("description", event.target.value)} className="input min-h-28" /></Field>
+        </Panel>
+        <Panel title="Harga dan media">
+          <div className="grid gap-4 sm:grid-cols-2"><Field label="Harga jual (IDR)"><input required type="number" min="0" step="1" value={form.priceMinor} onChange={(event) => input("priceMinor", event.target.value)} className="input" /></Field><Field label="Harga pembanding (IDR)"><input type="number" min="0" step="1" value={form.compareAtPriceMinor} onChange={(event) => input("compareAtPriceMinor", event.target.value)} className="input" /></Field></div>
+          <Field label="URL/path gambar tersimpan"><input type="text" value={form.imageUrl} onChange={(event) => input("imageUrl", event.target.value)} placeholder="/images/products/item.webp atau https://…" className="input" /></Field>
+          <button type="button" disabled aria-label="Unggah gambar belum tersedia" className="flex min-h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 text-sm font-bold text-slate-400"><Upload className="h-4 w-4" />Unggah berkas belum tersedia</button>
+          <p className="text-xs text-slate-500">Gunakan path lokal absolut (/...) atau URL HTTP(S) yang sudah tersedia. Berkas lokal tidak akan disimpan oleh browser.</p>
+        </Panel>
+      </div>
+      <div className="space-y-5">
+        <Panel title="Status dan logistik"><Field label="Status"><select value={form.status} onChange={(event) => input("status", event.target.value)} className="input bg-white"><option value="draft">Draf</option><option value="active">Aktif</option><option value="archived">Diarsipkan</option></select></Field><Field label="Berat (gram)"><input required type="number" min="1" step="1" value={form.weightGrams} onChange={(event) => input("weightGrams", event.target.value)} className="input" /></Field><Field label="GTIN / EAN"><input inputMode="numeric" maxLength={14} value={form.gtin} onChange={(event) => input("gtin", event.target.value.replace(/\D/g, ""))} className="input font-mono" /></Field><Field label="Merek"><input maxLength={100} value={form.brand} onChange={(event) => input("brand", event.target.value)} className="input" /></Field></Panel>
+        <Panel title="Varian utama"><Field label="Nama varian"><input required value={form.variantTitle} onChange={(event) => input("variantTitle", event.target.value)} className="input" /></Field><Field label="SKU"><input maxLength={100} value={form.sku} onChange={(event) => input("sku", event.target.value.toUpperCase())} className="input font-mono" /></Field><Field label="Stok unit"><input required type="number" min="0" step="1" value={form.stockQuantity} onChange={(event) => input("stockQuantity", event.target.value)} className="input" /></Field>{editing !== "new" && !editing.primaryVariant && <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">Produk lama ini belum memiliki varian utama. Menyimpan form akan membuat varian default; produk lama tidak dihapus.</p>}</Panel>
+      </div>
+    </form>
+  </div>;
+}
+function ProductCard({ product, edit, archive, canMutate }: { product: CatalogProduct; edit: () => void; archive: () => void; canMutate: boolean }) { return <article className="space-y-3 p-4"><div className="flex gap-3">{product.images[0] ? <img src={product.images[0]} alt="" className="h-14 w-14 rounded-lg border object-cover" /> : <span className="grid h-14 w-14 place-items-center rounded-lg bg-slate-100"><ImageIcon className="h-5 w-5 text-slate-400" /></span>}<div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><h2 className="font-bold">{product.name}</h2><Status status={product.status} /></div><p className="truncate text-xs text-slate-500">/{product.slug}</p></div></div><div className="grid grid-cols-2 gap-3 text-sm"><Info label="Harga" value={IDR.format(product.priceMinor)} /><Info label="Stok" value={product.primaryVariant ? `${product.primaryVariant.stockQuantity} unit` : "Varian belum ada"} /><Info label="SKU" value={product.primaryVariant?.sku ?? "—"} /><Info label="Berat" value={`${product.weightGrams.toLocaleString("id-ID")} g`} /></div>{canMutate && <div className="flex gap-2 border-t pt-3"><button onClick={edit} className="min-h-11 flex-1 rounded-lg border border-slate-300 text-sm font-bold"><Pencil className="mr-2 inline h-4 w-4" />Edit</button><button onClick={archive} disabled={product.status === "archived"} className="min-h-11 flex-1 rounded-lg border border-amber-300 text-sm font-bold text-amber-700 disabled:opacity-40"><Archive className="mr-2 inline h-4 w-4" />Arsipkan</button></div>}</article>; }
+function ProductRow({ product, edit, archive, canMutate }: { product: CatalogProduct; edit: () => void; archive: () => void; canMutate: boolean }) { return <tr className="hover:bg-slate-50"><td className="px-4 py-4"><p className="font-bold">{product.name}</p><p className="text-xs text-slate-500">/{product.slug}</p></td><td className="px-4 py-4"><p className="font-mono text-xs">{product.primaryVariant?.sku ?? "Varian belum ada"}</p><p className="mt-1 flex items-center gap-1 font-mono text-xs text-slate-500"><Barcode className="h-3 w-3" />{product.gtin ?? "GTIN belum diisi"}</p></td><td className="px-4 py-4 font-bold">{IDR.format(product.priceMinor)}{product.compareAtPriceMinor !== null && <p className="text-xs font-normal text-slate-400 line-through">{IDR.format(product.compareAtPriceMinor)}</p>}</td><td className="px-4 py-4"><p>{product.primaryVariant ? `${product.primaryVariant.stockQuantity} unit` : "Varian belum ada"}</p><p className="text-xs text-slate-500">{product.weightGrams.toLocaleString("id-ID")} g</p></td><td className="px-4 py-4"><Status status={product.status} /></td><td className="px-4 py-4">{canMutate && <div className="flex justify-end gap-2"><button onClick={edit} aria-label={`Edit ${product.name}`} className="grid min-h-11 min-w-11 place-items-center rounded-lg border"><Pencil className="h-4 w-4" /></button><button onClick={archive} disabled={product.status === "archived"} aria-label={`Arsipkan ${product.name}`} className="grid min-h-11 min-w-11 place-items-center rounded-lg border text-amber-700 disabled:opacity-40"><Archive className="h-4 w-4" /></button></div>}</td></tr>; }
+function Status({ status }: { status: ProductStatus }) { return <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${status === "active" ? "bg-emerald-50 text-emerald-700" : status === "draft" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>{STATUS_LABEL[status]}</span>; }
+function Pagination({ page, setOffset }: { page: CatalogPage; setOffset: (offset: number) => void }) { const end = Math.min(page.pagination.offset + page.pagination.limit, page.pagination.total); return <footer className="flex items-center justify-between border-t p-4 text-sm"><p className="text-slate-500">{page.pagination.total ? page.pagination.offset + 1 : 0}–{end} dari {page.pagination.total} produk</p><div className="flex gap-2"><button aria-label="Halaman sebelumnya" disabled={!page.pagination.offset} onClick={() => setOffset(Math.max(0, page.pagination.offset - page.pagination.limit))} className="grid min-h-11 min-w-11 place-items-center rounded-lg border disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button><button aria-label="Halaman berikutnya" disabled={end >= page.pagination.total} onClick={() => setOffset(page.pagination.offset + page.pagination.limit)} className="grid min-h-11 min-w-11 place-items-center rounded-lg border disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button></div></footer>; }
+function Panel({ title, children }: { title: string; children: React.ReactNode }) { return <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><h2 className="text-xs font-bold uppercase tracking-wide text-slate-500">{title}</h2>{children}</section>; }
+function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block space-y-1 text-sm font-bold text-slate-700"><span>{label}</span>{children}</label>; }
+function Info({ label, value }: { label: string; value: string }) { return <div><p className="text-xs text-slate-500">{label}</p><p className="truncate font-semibold">{value}</p></div>; }
+function Skeleton() { return <div aria-label="Memuat produk" className="space-y-3 p-4">{[0, 1, 2].map((item) => <div key={item} className="h-20 animate-pulse rounded-lg bg-slate-100" />)}</div>; }
+function State({ icon: Icon, title, detail, children }: { icon: typeof AlertCircle; title: string; detail: string; children?: React.ReactNode }) { return <div className="grid min-h-72 place-items-center p-6 text-center"><div><Icon className="mx-auto h-9 w-9 text-slate-400" /><h2 className="mt-3 font-bold">{title}</h2><p className="mx-auto mt-1 max-w-md text-sm text-slate-500">{detail}</p>{children && <div className="mt-4">{children}</div>}</div></div>; }

@@ -7,12 +7,13 @@
   "module": "./src/index.ts",
   "scripts": {
     "build": "tsc --noEmit",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test scripts/*.test.ts"
   },
   "dependencies": {
     "@dotads/contracts": "workspace:*",
     "@dotads/db": "workspace:*",
-    "drizzle-orm": "^0.38.4"
+    "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",

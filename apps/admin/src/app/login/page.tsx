@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ShieldAlert, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { safeInvitationReturnTo } from "@/lib/invitation-acceptance";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,20 +24,29 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      const submittedValue = email.trim();
+      const developmentAliases: Record<string, string> = {
+        admin: "admin@dotads.local",
+        merchant: "merchant@dotads.local",
+      };
+      const submittedEmail = process.env.NODE_ENV !== "production"
+        ? developmentAliases[submittedValue.toLowerCase()] ?? submittedValue
+        : submittedValue;
       const res = await fetch("/api/auth/sign-in/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: submittedEmail, password }),
       });
 
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        throw new Error(data.error || data.message || "Failed to login. Please check your credentials.");
+        throw new Error(data.error || data.message || "Gagal masuk. Periksa kembali email dan kata sandi.");
       }
 
-      router.push("/admin");
+      const returnTo = safeInvitationReturnTo(new URLSearchParams(window.location.search).get("returnTo"));
+      router.replace(returnTo);
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -49,9 +59,9 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-2 text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight">Welcome back</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight">Selamat datang kembali</CardTitle>
           <CardDescription>
-            Enter your email to sign in to your account
+            Masukkan email dan kata sandi untuk masuk ke akun Anda
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -66,8 +76,8 @@ export default function LoginPage() {
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
-                type="email"
-                placeholder="m@example.com"
+                type={process.env.NODE_ENV === "production" ? "email" : "text"}
+                placeholder={process.env.NODE_ENV === "production" ? "m@example.com" : "Email, admin, atau merchant"}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -76,7 +86,7 @@ export default function LoginPage() {
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">Kata sandi</Label>
               </div>
               <Input
                 id="password"
@@ -89,15 +99,15 @@ export default function LoginPage() {
             </div>
             <Button className="w-full" type="submit" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Sign In
+              Masuk
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
           <div className="text-sm text-center text-gray-500 dark:text-gray-400">
-            Don't have an account?{" "}
+            Belum memiliki akun?{" "}
             <Link href="/register" className="text-black dark:text-white hover:underline font-medium">
-              Register Merchant
+              Daftar sebagai merchant
             </Link>
           </div>
         </CardFooter>

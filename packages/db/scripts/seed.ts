@@ -1,4 +1,4 @@
-import { db, client } from "../src/client.ts";
+import { migrationDb as db, migrationClient as client } from "../src/client.ts";
 import * as schema from "../src/schema/index.ts";
 import { eq } from "drizzle-orm";
 import * as dotenv from "dotenv";
@@ -23,6 +23,7 @@ export async function seedDatabase() {
       name: "Platform Super Admin",
       email: "superadmin@dotads.com",
       emailVerified: true,
+      role: "SUPER_ADMIN",
     })
     .onConflictDoNothing();
   console.log("  ✓ Created Super Admin: superadmin@dotads.com");
@@ -65,6 +66,7 @@ export async function seedDatabase() {
     name: "Alpha Tenant Owner",
     email: "owner@store-alpha.com",
     emailVerified: true,
+    role: "TENANT_OWNER",
   }).onConflictDoNothing().returning();
 
   if (orgAlpha && userAlphaOwner) {
@@ -84,10 +86,11 @@ export async function seedDatabase() {
     name: "Headphone Pro Max Wireless ANC",
     slug: "headphone-pro-max",
     description: "Headphone noise-cancelling premium untuk penikmat audio tinggi. Baterai tahan 40 jam.",
-    priceMinor: 149900000,
-    compareAtPriceMinor: 199900000,
+    priceMinor: 1499000,
+    compareAtPriceMinor: 1999000,
     status: "active",
-    gtin: "8991234567890",
+    gtin: "8991234567884",
+    imagesJson: ["/images/products/gadget-headphone-pro.webp"],
   }).onConflictDoNothing().returning();
 
   const [prodWatch] = await db.insert(schema.products).values({
@@ -96,28 +99,12 @@ export async function seedDatabase() {
     name: "SmartWatch Ultra V2 Fitness",
     slug: "smartwatch-ultra-v2",
     description: "Smartwatch tahan air IP68 dengan Amoled display & pelacakan detak jantung real-time.",
-    priceMinor: 89900000,
-    compareAtPriceMinor: 129900000,
+    priceMinor: 899000,
+    compareAtPriceMinor: 1299000,
     status: "active",
     gtin: "8991234567891",
+    imagesJson: ["/images/products/smartwatch-ultra-v2.webp"],
   }).onConflictDoNothing().returning();
-
-  if (prodHeadphone) {
-    await db.insert(schema.productMedia).values({
-      productId: prodHeadphone.id,
-      mediaUrl: "/images/products/gadget-headphone-pro.webp",
-      mediaType: "image/webp",
-      sortOrder: 0,
-    }).onConflictDoNothing();
-  }
-  if (prodWatch) {
-    await db.insert(schema.productMedia).values({
-      productId: prodWatch.id,
-      mediaUrl: "/images/products/smartwatch-ultra-v2.webp",
-      mediaType: "image/webp",
-      sortOrder: 0,
-    }).onConflictDoNothing();
-  }
   console.log("  ✓ Seeded WebP Product Images");
 
   // 4. Integrations & Tracking Configs
@@ -225,11 +212,11 @@ export async function seedDatabase() {
   // 8. Seed Comprehensive Orders across All Statuses
   console.log("\n[8/9] Seeding Orders & Order Items across All Statuses...");
   const dummyOrders = [
-    { num: "ORD-ALPHA-1001", status: "CONFIRMED", payStatus: "PAID", fulStatus: "UNFULFILLED", method: "QRIS", courier: "JNE", total: 149900000, risk: 15 },
-    { num: "ORD-ALPHA-1002", status: "SHIPPED", payStatus: "UNPAID", fulStatus: "IN_TRANSIT", method: "COD", courier: "SICEPAT", total: 89900000, risk: 20 },
-    { num: "ORD-ALPHA-1003", status: "PENDING_PAYMENT", payStatus: "UNPAID", fulStatus: "UNFULFILLED", method: "VA_BCA", courier: "J&T", total: 149900000, risk: 45 },
-    { num: "ORD-ALPHA-1004", status: "DELIVERED", payStatus: "PAID", fulStatus: "DELIVERED", method: "COD", courier: "JNE", total: 239800000, risk: 10 },
-    { num: "ORD-ALPHA-1005", status: "CANCELLED", payStatus: "UNPAID", fulStatus: "RETURNED", method: "COD", courier: "SAP", total: 89900000, risk: 85 },
+    { num: "ORD-ALPHA-1001", status: "CONFIRMED", payStatus: "PAID", fulStatus: "UNFULFILLED", method: "QRIS", courier: "JNE", total: 1499000, risk: 15 },
+    { num: "ORD-ALPHA-1002", status: "SHIPPED", payStatus: "UNPAID", fulStatus: "IN_TRANSIT", method: "COD", courier: "SICEPAT", total: 899000, risk: 20 },
+    { num: "ORD-ALPHA-1003", status: "PENDING_PAYMENT", payStatus: "UNPAID", fulStatus: "UNFULFILLED", method: "VA_BCA", courier: "J&T", total: 1499000, risk: 45 },
+    { num: "ORD-ALPHA-1004", status: "DELIVERED", payStatus: "PAID", fulStatus: "DELIVERED", method: "COD", courier: "JNE", total: 2398000, risk: 10 },
+    { num: "ORD-ALPHA-1005", status: "CANCELLED", payStatus: "UNPAID", fulStatus: "RETURNED", method: "COD", courier: "SAP", total: 899000, risk: 85 },
   ];
 
   for (const o of dummyOrders) {
@@ -246,8 +233,8 @@ export async function seedDatabase() {
       subdistrictId: "5fc62f63f8ff44b34a4ce00a",
       courierCode: o.courier,
       courierService: "REG",
-      subtotalMinor: o.total - 1000000,
-      shippingCostMinor: 1000000,
+      subtotalMinor: o.total - 10000,
+      shippingCostMinor: 10000,
       totalMinor: o.total,
       cnoteNo: o.status === "SHIPPED" || o.status === "DELIVERED" ? `MNTR_${Date.now()}` : null,
       rtsRiskScore: o.risk,
@@ -261,8 +248,8 @@ export async function seedDatabase() {
         productId: prodHeadphone ? prodHeadphone.id : "22222222-2222-2222-2222-222222222222",
         productName: "Headphone Pro Max Wireless ANC",
         quantity: 1,
-        priceMinor: o.total - 1000000,
-        subtotalMinor: o.total - 1000000,
+        priceMinor: o.total - 10000,
+        subtotalMinor: o.total - 10000,
       }).onConflictDoNothing();
     }
   }
@@ -284,7 +271,7 @@ export async function seedDatabase() {
         user_data: { fn: "budi", ph: "081234567890" },
         custom_data: { currency: "IDR", value: 1499000 },
       },
-      status: "sent",
+      status: "pending",
     }).onConflictDoNothing();
 
     await db.insert(schema.outboxEvents).values({
@@ -297,7 +284,7 @@ export async function seedDatabase() {
         event_name: evt,
         conversion_value: 1499000,
       },
-      status: "sent",
+      status: "pending",
     }).onConflictDoNothing();
   }
 

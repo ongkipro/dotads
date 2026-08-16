@@ -10,10 +10,22 @@
     "build": "tsc",
     "smoke:rbac": "node --experimental-strip-types scripts/smoke-rbac.ts",
     "smoke:member-invitations": "node --experimental-strip-types scripts/smoke-member-invitations.ts",
+    "smoke:invitation-acceptance": "node --experimental-strip-types scripts/smoke-invitation-acceptance.ts",
     "smoke:domain-routing": "node --experimental-strip-types scripts/smoke-domain-routing.ts",
     "smoke:audit-log": "node --experimental-strip-types scripts/smoke-audit-log.ts",
     "smoke:platform": "node --experimental-strip-types scripts/smoke-platform.ts",
-    "smoke:public-auth": "node --experimental-strip-types scripts/smoke-public-auth.ts"
+    "smoke:orders": "node --experimental-strip-types scripts/smoke-orders.ts",
+    "smoke:catalog": "node --experimental-strip-types scripts/smoke-catalog.ts",
+    "smoke:dashboard": "node --experimental-strip-types scripts/smoke-dashboard.ts",
+    "smoke:public-auth": "node --experimental-strip-types scripts/smoke-public-auth.ts",
+    "smoke:webhooks": "node --experimental-strip-types scripts/smoke-webhooks.ts",
+    "smoke:public-order-idempotency": "node --experimental-strip-types scripts/smoke-public-order-idempotency.ts",
+    "openapi:export": "NODE_ENV=test node --experimental-strip-types scripts/export-openapi.ts",
+    "dev:seed-auth": "node --experimental-strip-types scripts/seed-dev-auth.ts",
+    "smoke:dev-auth-fixture": "node --experimental-strip-types scripts/smoke-dev-auth-fixture.ts",
+    "smoke:trusted-origins": "node --experimental-strip-types scripts/smoke-trusted-origins.ts",
+    "operator:bootstrap-superadmin": "node --experimental-strip-types scripts/bootstrap-superadmin.ts",
+    "smoke:operator-bootstrap": "node --experimental-strip-types scripts/smoke-operator-bootstrap.ts"
   },
   "dependencies": {
     "@dotads/auth": "workspace:*",
@@ -22,8 +34,10 @@
     "@hono/node-server": "^1.13.8",
     "@hono/zod-openapi": "^0.18.4",
     "@scalar/hono-api-reference": "^0.5.171",
-    "drizzle-orm": "^0.38.4",
+    "better-auth": "^1.2.6",
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.7.2",
+    "postgres": "^3.4.5",
     "zod": "^3.24.2"
   },
   "devDependencies": {

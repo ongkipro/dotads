@@ -1,4 +1,5 @@
 import { pgTable, uuid, varchar, text, boolean, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { tenants } from "./tenants.ts";
 
 export const users = pgTable("users", {
@@ -99,7 +100,12 @@ export const invitations = pgTable(
     inviterId: text("inviter_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [index("idx_invitations_org").on(table.organizationId)]
+  (table) => [
+    index("idx_invitations_org").on(table.organizationId),
+    uniqueIndex("uniq_pending_invitation_org_email")
+      .on(table.organizationId, sql`lower(${table.email})`)
+      .where(sql`${table.status} = 'pending'`),
+  ]
 );
 
 export const rolesPermissions = pgTable(

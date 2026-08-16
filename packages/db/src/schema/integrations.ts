@@ -41,6 +41,7 @@ export const mengantarDispatchQueue = pgTable(
     index("idx_mengantar_queue_tenant").on(table.tenantId),
     index("idx_mengantar_queue_status").on(table.status),
     index("idx_mengantar_queue_retry").on(table.nextRetryAt),
+    uniqueIndex("uniq_mengantar_queue_tenant_order").on(table.tenantId, table.orderId),
   ]
 );
 
@@ -87,7 +88,7 @@ export const paymentTransactions = pgTable(
     tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
     gateway: varchar("gateway", { length: 50 }).notNull().default("AUTOLARIS"), // AUTOLARIS, MANUAL_COD
-    transactionId: varchar("transaction_id", { length: 255 }).notNull(),
+    transactionId: varchar("transaction_id", { length: 255 }),
     amountMinor: integer("amount_minor").notNull(),
     paymentMethod: varchar("payment_method", { length: 50 }).notNull(),
     status: varchar("status", { length: 30 }).notNull().default("PENDING"), // PENDING, SUCCESS, EXPIRED, FAILED
@@ -103,5 +104,6 @@ export const paymentTransactions = pgTable(
     index("idx_payments_tenant").on(table.tenantId),
     index("idx_payments_order").on(table.orderId),
     uniqueIndex("uniq_gateway_trans").on(table.gateway, table.transactionId),
+    uniqueIndex("uniq_payment_tenant_gateway_order").on(table.tenantId, table.gateway, table.orderId),
   ]
 );

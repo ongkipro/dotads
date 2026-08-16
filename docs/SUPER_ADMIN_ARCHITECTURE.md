@@ -1,97 +1,118 @@
-# Super Admin Architecture & Platform Control Plane Specification
-**DotAds Engine v2 - Multi-Tenant Platform Administration Specification**
+# Super Admin Control Plane — Current Architecture and Remediation Contract
 
----
+**Last verified against repository code:** 2026-08-16
+**Release state:** Incomplete; not production-ready
 
-## 1. Architecture Overview & Control Plane Boundary
+## 1. Boundary and Route Topology
 
-DotAds Engine v2 employs a strict **Role-Based Isolation & Multi-Tenant Control Plane Architecture**. The **Super Admin Workspace** (`/super-admin`) operates at the platform level, separated from individual merchant workspaces (`/admin`).
+The intended boundary remains:
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                   SUPER ADMIN CONTROL PLANE HUB                        │
-│             Role: SUPER_ADMIN (Platform Operator Scope)                 │
-├───────────────────┬───────────────────┬────────────────────────────────┤
-│ /super-admin      │ /super-admin      │ /super-admin/settings          │
-│ Platform Metrics  │ Tenant Fleet      │ Global Registry                │
-└─────────┬─────────┴─────────┬─────────┴───────────────┬────────────────┘
-          │                   │                         │
-          ▼                   ▼                         ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                   HONO PLATFORM ROUTER (/api/platform/*)               │
-├────────────────────────────────────────────────────────────────────────┤
-│ GET  /platform/stats           - Aggregate GMV & Fleet Metrics         │
-│ GET  /platform/tenants         - List & Search Tenant Fleet            │
-│ POST /platform/tenants         - Provision New Merchant Workspace      │
-│ PATCH/platform/tenants/:id     - Suspend/Activate & Tier Mutation     │
-│ POST /platform/tenants/:id/imp - Secure Tenant Impersonation Token    │
-│ GET  /platform/settings        - Global Platform Defaults Registry     │
-│ PUT  /platform/settings        - Mutate Global Security/Tenancy Config │
-│ GET  /platform/audit-logs      - Immutable Platform-wide Audit Trail   │
-└────────────────────────────────────────────────────────────────────────┘
-```
+- `/super-admin/*` — platform-operator workspace for `SUPER_ADMIN`.
+- `/admin/*` — tenant workspace for tenant-scoped roles.
+- `/api/v1/platform/*` — platform API mounted by `apps/api/src/app.ts`.
+- `/api/v1/admin/*` — tenant API.
 
----
+Menu separation is not an authorization boundary. The server must validate the session and role for every platform request, and the Next.js layouts must prevent direct cross-workspace navigation.
 
-## 2. API Contract Specification (@hono/zod-openapi)
+## 2. Current Platform API Truth
 
-### 2.1 Fleet Statistics Endpoint
-* **Path:** `GET /api/platform/stats`
-* **Permission:** `SUPER_ADMIN`
-* **Response Schema:**
-```json
-{
-  "totalTenants": 4,
-  "activeTenants": 3,
-  "suspendedTenants": 1,
-  "totalGmv": 184200000,
-  "totalOrders": 1445,
-  "securityAlertsCount": 1,
-  "planBreakdown": {
-    "STARTER": 2,
-    "PRO": 1,
-    "ENTERPRISE": 1
-  }
-}
-```
+`apps/api/src/routes/platform.ts` currently registers the following guarded routes:
 
-### 2.2 Provisioning Endpoint
-* **Path:** `POST /api/platform/tenants`
-* **Permission:** `SUPER_ADMIN`
-* **Request Schema:**
-```json
-{
-  "name": "Beta Gadget Store",
-  "slug": "beta-gadget",
-  "ownerEmail": "owner@betagadget.com",
-  "customDomain": "betagadget.com",
-  "tier": "PRO"
-}
-```
-
-### 2.3 Tenant Impersonation Endpoint
-* **Path:** `POST /api/platform/tenants/:id/impersonate`
-* **Permission:** `SUPER_ADMIN`
-* **Response:** Signed bearer JWT token scoping session to `tenantId` with `impersonatedBy: "superadmin_id"`.
-
----
-
-## 3. Security & Immutable Audit Logging Invariant
-Every action executed by a Super Admin MUST create an append-only entry in `schema.auditLogs`:
-1. `TENANT_PROVISIONED`: When a new merchant workspace is initialized.
-2. `TENANT_STATUS_MUTATED`: When a tenant is suspended or activated.
-3. `TENANT_IMPERSONATED`: When an operator enters a merchant workspace.
-4. `PLATFORM_SETTING_MUTATED`: When global TTL, MFA, or rate limit defaults are updated.
-
----
-
-## 4. Implementation Task Matrix
-
-| Task ID | Component | Deliverable | Status |
+| Method | Canonical path | Current behavior | Known gap |
 | :--- | :--- | :--- | :--- |
-| `SA-01` | Specification | `SUPER_ADMIN_ARCHITECTURE.md` PRD & contract definition | Completed |
-| `SA-02` | Hono API Router | Full CRUD OpenAPI handlers in `apps/api/src/routes/platform.ts` | Completed |
-| `SA-03` | Fleet Management UI | Interactive provisioning modal, status toggling, and search | Completed |
-| `SA-04` | Global Settings UI | Platform settings mutation with audit warning & preview | Completed |
-| `SA-05` | Global Audit Logs UI | Filterable audit event inspector & CSV/JSON exporter | Completed |
-| `SA-06` | Integration Smoke | `smoke-platform.ts` automated end-to-end verification | Completed |
+| `GET` | `/api/v1/platform/stats` | Returns tenant counts plus aggregate order count and `totalMinor` GMV. | `securityAlertsCount` is not a verified live metric; time period, WIB boundary, and IDR unit semantics are not specified. |
+| `GET` | `/api/v1/platform/tenants` | Lists tenant rows ordered by creation time. | Pagination, filtering, data minimization, and browser integration are not verified. |
+| `POST` | `/api/v1/platform/tenants` | Atomically creates one active tenant row and an authenticated-actor audit row. | It does not provision the owner, organization, or membership; there is no `provisioning -> active|failed` workflow. |
+| `PATCH` | `/api/v1/platform/tenants/{id}/status` | Atomically changes status with a required reason and writes an authenticated-actor audit row. Existing tenant sessions are denied after suspension. | Broader lifecycle, notification, recovery, and billing consequences are not implemented. |
+| `POST` | `/api/v1/platform/tenants/{id}/impersonate` | Requires a reason, validates the target, audits the authenticated attempt, and returns `501`. | Signed/persisted scope, effective role, banner, expiry, exit, and revocation are not implemented, so impersonation remains disabled. |
+| `GET` | `/api/v1/platform/audit-logs` | Returns the latest 100 append-only audit rows. | No pagination/filter/export contract is implemented. |
+
+There are currently **no implemented platform settings API routes**. The `/super-admin/settings` page must not be documented as persisted platform configuration until corresponding authenticated endpoints, storage, audit, and tests exist.
+
+## 3. Current UI Truth
+
+The repository contains pages for:
+
+- `/super-admin`
+- `/super-admin/tenants`
+- `/super-admin/settings`
+- `/super-admin/audit-logs`
+- `/super-admin/setup`
+
+The audited platform dashboard, tenant fleet, settings, and audit pages primarily use hardcoded arrays or client-local state. Tenant provisioning and status toggles in the CMS do not currently prove calls to the platform API or persistence after reload. “Open workspace” does not establish the secure impersonation flow defined below.
+
+The super-admin layout must derive `SUPER_ADMIN` from a validated server session. A hardcoded layout role or the mere presence of a cookie is not sufficient authorization.
+
+## 4. Target Provisioning Contract
+
+The production provisioning operation must use one transaction or compensating workflow to create:
+
+1. tenant with initial `provisioning` state;
+2. organization bound to that tenant;
+3. owner user or a secure invitation for an existing user;
+4. `TENANT_OWNER` membership;
+5. required default settings and plan state;
+6. actor-correct audit evidence;
+7. final transition to `active`, or `failed` with a retryable error record.
+
+A target request may include `name`, `slug`, `ownerEmail`, `tier`, and optional domain/region configuration, but this is a target contract—not the current endpoint contract. The current endpoint accepts only `name`, `slug`, `tier`, and optional `customDomain`.
+
+Required failure behavior:
+
+- duplicate email, slug, or domain returns a stable conflict response;
+- partial writes do not leave an active orphan tenant;
+- retry is idempotent;
+- credentials or provider secrets never appear in responses or audit metadata.
+
+## 5. Target Impersonation Contract
+
+Secure impersonation must provide:
+
+- a short-lived signed or server-stored session;
+- authenticated `SUPER_ADMIN` actor ID and email;
+- explicit target tenant and effective tenant role;
+- operator-provided support reason or ticket reference;
+- issued-at, expiry, revocation, and one-click exit;
+- a persistent, high-visibility impersonation banner on every tenant page;
+- server-side authorization on every impersonated request;
+- append-only start, sensitive-action, and end audit evidence;
+- re-authentication or step-up policy for destructive, billing, secret, and ownership actions.
+
+No placeholder impersonation token is emitted. The endpoint must remain fail-closed until every invariant above is implemented.
+
+## 6. Audit Invariants
+
+Every platform mutation must record the actual authenticated actor and target. The audit record must be committed atomically with the business mutation and include appropriate before/after state without secrets or unnecessary personal data.
+
+Required events include:
+
+- tenant provisioning requested, activated, failed, or retried;
+- tenant status changed with reason;
+- impersonation started, ended, expired, or revoked;
+- plan, billing, domain, security, or platform setting changed;
+- privileged export or secret rotation requested.
+
+Migration `0003_immutable_audit_log.sql` installs a database trigger that rejects audit updates and deletes. The smoke test attempts both mutations and verifies the original row remains unchanged. Completeness and before/after/request metadata still require broader coverage.
+
+## 7. Permission and Tenant-State Invariants
+
+- All `/api/v1/platform/*` routes require a validated `SUPER_ADMIN` session.
+- Tenant roles must receive `403` for every platform route.
+- Super-admin access to `/admin/*` must occur only through an explicit support workflow, not a client-side role switch.
+- Suspending or cancelling a tenant must deny tenant operations immediately according to a documented recovery policy.
+- UI visibility, disabled buttons, and confirmation dialogs complement but never replace server authorization.
+
+## 8. Required Verification
+
+The control plane is complete only when executable evidence covers:
+
+1. negative role tests for every platform route;
+2. atomic provisioning success, conflict, rollback, and retry;
+3. status enforcement against an already-authenticated tenant session;
+4. signed/stored impersonation scope, expiry, revocation, banner, exit, and audit actor;
+5. database rejection of audit update/delete;
+6. platform UI persistence after reload and honest API failure recovery;
+7. desktop, tablet, mobile, keyboard, and accessibility behavior;
+8. pagination/filter/export behavior without cross-tenant or secret leakage.
+
+The narrow platform, RBAC, or navigation smoke checks may contribute evidence but cannot alone complete these requirements.

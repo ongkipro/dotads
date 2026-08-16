@@ -1,4 +1,12 @@
-import { db, schema } from "../packages/db/src/index.ts";
+import {
+  client,
+  db,
+  migrationClient,
+  platformClient,
+  schema,
+  withDatabaseContext,
+  type DatabaseSessionContext,
+} from "../packages/db/src/index.ts";
 import { eq } from "drizzle-orm";
 import {
   evaluateReceiverRisk,
@@ -15,10 +23,28 @@ async function runReleaseSmoke() {
 
   // 1. Verify Database Connection & Tenants
   console.log("\n[1/7] Verifying Database Tenants...");
-  const tenants = await db.select().from(schema.tenants);
+  const platformContext: DatabaseSessionContext = {
+    userId: "smoke:release",
+    userEmail: "release-smoke@dotads.invalid",
+    tenantId: "",
+    organizationId: "",
+    role: "SUPER_ADMIN",
+    tenantName: "DotAds Platform",
+    tenantStatus: "active",
+  };
+  const tenants = await withDatabaseContext(platformContext, () => db.select().from(schema.tenants));
   assert.ok(tenants.length > 0, "Database must contain seeded tenants");
   const tenant = tenants[0];
   console.log(`  ✓ Found Active Tenant: ${tenant.name} (${tenant.id})`);
+
+  const tenantContext: DatabaseSessionContext = {
+    ...platformContext,
+    tenantId: tenant.id,
+    role: "TENANT_OWNER",
+    tenantName: tenant.name,
+  };
+
+  const dispatchedOrderId = await withDatabaseContext(tenantContext, async () => {
 
   // 2. Test Receiver Risk Scoring
   console.log("\n[2/7] Testing Receiver Risk Scoring Engine...");
@@ -39,7 +65,7 @@ async function runReleaseSmoke() {
     .values({
       tenantId: tenant.id,
       orderNumber,
-      status: "PENDING_PAYMENT",
+      status: "CONFIRMED",
       paymentMethod: "COD",
       customerName: "Release Test Buyer",
       customerPhone: "081298765432",
@@ -128,22 +154,26 @@ async function runReleaseSmoke() {
     orderId: order.id,
     status: "pending",
   });
+  return order.id;
+  });
 
   const dispatchedJobsCount = await processMengantarDispatchQueue();
+  assert.ok(dispatchedJobsCount >= 1, "Mengantar worker must claim at least the queued release-smoke order");
+  await withDatabaseContext(tenantContext, async () => {
   const [updatedOrder] = await db
     .select()
     .from(schema.orders)
-    .where(eq(schema.orders.id, order.id));
+    .where(eq(schema.orders.id, dispatchedOrderId));
   assert.strictEqual(updatedOrder.status, "SHIPPED");
   assert.ok(updatedOrder.cnoteNo, "Waybill cnoteNo must be generated");
-  console.log(`  ✓ Mengantar Dispatched 1 Order -> Waybill: ${updatedOrder.cnoteNo}`);
+  console.log(`  ✓ Mengantar processed ${dispatchedJobsCount} queued order(s); release order waybill: ${updatedOrder.cnoteNo}`);
 
   // 6. Test AutoLaris Payment Reconciliation
   console.log("\n[6/7] Testing AutoLaris Payment Reconciliation...");
   const transactionId = `TX_SMOKE_${Date.now().toString().slice(-6)}`;
   await db.insert(schema.paymentTransactions).values({
     tenantId: tenant.id,
-    orderId: order.id,
+    orderId: dispatchedOrderId,
     gateway: "autolaris",
     transactionId,
     paymentMethod: "QRIS",
@@ -151,7 +181,13 @@ async function runReleaseSmoke() {
     status: "PENDING",
   });
 
-  await reconcilePaymentStatus(transactionId, "SUCCESS");
+  await reconcilePaymentStatus({
+    tenantId: tenant.id,
+    transactionId,
+    orderId: dispatchedOrderId,
+    amountMinor: 170000,
+    status: "SUCCESS",
+  });
   const [reconciledTx] = await db
     .select()
     .from(schema.paymentTransactions)
@@ -162,14 +198,17 @@ async function runReleaseSmoke() {
   // 7. Summary
   console.log("\n==================================================================");
   console.log("🎉 ALL RELEASE SMOKE CHECKS PASSED SUCCESSFULLY!");
-  console.log("   DotAds Engine v2 is PRODUCTION-READY and READY FOR DEPLOYMENT!");
+  console.log("   This smoke result is not a production-readiness or deployment certification.");
   console.log("==================================================================\n");
-
-  process.exit(0);
+  });
 }
 
-runReleaseSmoke().catch((err: unknown) => {
-  const msg = err instanceof Error ? err.message : String(err);
-  console.error("Release Smoke FAILED:", msg);
-  process.exit(1);
-});
+runReleaseSmoke()
+  .catch((err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("Release Smoke FAILED:", msg);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await Promise.all([client.end(), platformClient.end(), migrationClient.end()]);
+  });

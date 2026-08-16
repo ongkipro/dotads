@@ -1,5 +1,7 @@
 # DotAds Engine v2 — Architecture Plan
 
+> **Compatibility record — superseded for current architecture truth.** `ARCHITECTURE.md` is the canonical system architecture and executable code/migrations win over this planning snapshot. Options and target states below are not deployment evidence.
+
 ## 1. Problem
 DotAds 1.0 coupled tenant isolation to Cloudflare Worker/D1 fleets. That made provisioning, migrations, preview environments, and embed UX too expensive to operate.
 

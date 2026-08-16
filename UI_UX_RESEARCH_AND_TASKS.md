@@ -1,5 +1,7 @@
 # DotAds Engine v2 — UI/UX Research, Specification & Master Task Matrix
 
+> **Historical/superseded record — 2026-08-16.** This research and task matrix is superseded as an owner. Use `PRD.md`, `UI-UX-DESIGN-SYSTEM.md`, relevant feature specifications, and permanent tasks in `TASKS.md`.
+
 > **Status:** Active Production Specification & Implementation Plan  
 > **Target Audience:** Full-Stack Engineers, UX Designers, AI Agents  
 > **Target Surfaces:** Next.js 15 Admin Workspace (`apps/admin`), Form & LP Builder Canvases, Astro 5 Storefront (`apps/storefront`), `<dotads-form>` Web Component Runtime  

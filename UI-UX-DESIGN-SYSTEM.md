@@ -1,5 +1,7 @@
 # DotAds Engine v2 — UI & UX Design System
 
+> **Status: Target design contract with partial implementation.** `STATUS.md` owns implementation truth. Component names and workflow descriptions below do not imply persistence, server authorization, accessibility, or browser evidence unless `BUILD-LOG.md` records it.
+
 ## 1. Design Direction
 Preserve DotAds familiarity, but formalize a responsive, app-like operator system across desktop, tablet, and mobile webview.
 
@@ -42,6 +44,10 @@ Preserve DotAds familiarity, but formalize a responsive, app-like operator syste
 - `ADMIN`: all tenant groups except owner-only plan/ownership actions.
 - `ADVERTISER`: Dashboard, Produk, Konten Storefront, Ads & Tracking, Builders.
 - `CUSTOMER_SERVICE`: Dashboard, Order Management, Pengiriman, Ekspedisi, Cek WA & Ongkir, profile.
+
+**Observed Products permission behavior:** `TENANT_OWNER` and `ADMIN` receive create/edit/archive controls. `ADVERTISER` and `CUSTOMER_SERVICE` receive an explicit read-only Products view. API permission checks remain authoritative.
+
+**Observed Members workflow boundary:** real Chrome at 1280/768/390 verified persisted invite→resend→cancel. Invitation acceptance, role mutation, removal, forced failure, and accessibility are not yet browser-verified; delivery remains labelled `not_configured` at the API boundary.
 
 ## 5. Responsive behavior contract
 ### Desktop ≥ 1280px
@@ -113,6 +119,13 @@ Inside `Pengaturan > Store & CS`:
 
 ## 10. Product Listing, Inventory & Google Category UI/UX Mapping
 
+### 10.0 Current implementation boundary
+
+- **Observed:** `/admin/products` consumes the persisted Catalog API and implements bounded list/search/status filter/pagination, loading, empty, no-results, error/retry, one-primary-variant create/edit, stale-write recovery, and non-destructive archive.
+- **Observed browser evidence:** real merchant Chrome at 1280/768/390 verified persisted list, create, edit, archive, and reload with responsive cards below `xl` and a dense table at `xl`; no overflow, network, runtime, or console errors were reported.
+- **Observed limitation:** media file upload is disabled and labelled unavailable. The form accepts only an already-hosted local path or HTTP(S) URL; it does not pretend to persist a browser-selected file.
+- **Target only:** bulk actions, full variant matrix, dedicated inventory screen, automated Google category selection, media storage/upload, ALT editing, and export are not verified implementation.
+
 ### 10.1 Navigation & Screen Mapping
 - **Product Catalog List (`/admin/products`):**
   - Data table displaying Thumbnail, Product Title, SKU, Price Range, Inventory Count, Google Category Badge, and Active Status Toggle.
@@ -135,7 +148,10 @@ Inside `Pengaturan > Store & CS`:
 ## 11. Data Analytics, Charts, Date Range Pickers & Filter Controls (shadcn/ui)
 
 ### 11.1 Recharts & Chart Component Architecture (`@/components/ui/chart`)
-DotAds Engine v2 incorporates responsive **Recharts** wrapped in `shadcn/ui` thematic chart containers:
+
+**Current implementation boundary:** a mounted strict Dashboard API now supplies real tenant-scoped 7/30-day WIB order aggregates, but the current Dashboard UI remains synthetic and has not been wired or browser-verified against that API. The chart descriptions below remain target behavior. CAPI, EMQ, conversion, paid-revenue, and courier metrics are not present in the executable Dashboard contract.
+
+Target charts:
 
 1. **GMV & Revenue Trend Chart (`AreaChart`):**
    - Displays daily gross merchandise value (IDR) vs net paid revenue.

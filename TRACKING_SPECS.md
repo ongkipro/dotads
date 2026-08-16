@@ -1,7 +1,7 @@
 # DotAds Engine v2 — Meta Ads Signal Engine & Tracking Specification
 
 **Document Version:** 2.0.0  
-**Status:** APPROVED FOR IMPLEMENTATION  
+**Status:** Target contract; provider delivery and end-to-end signal evidence are incomplete
 **System Target:** DotAds Engine v2 (Hono API + Astro Storefront + Next.js Admin + `dotads-form.js` SDK)  
 **Target Multi-Tenancy:** PostgreSQL Row-Level Multi-Tenancy (`tenant_id`)  
 
@@ -9,7 +9,9 @@
 
 ## 1. Executive Summary & Architecture Overview
 
-The **Meta Ads Signal Engine** in DotAds Engine v2 provides an enterprise-grade, zero-loss signal tracking and attribution system. By combining high-speed browser-side Pixel tracking (`fbq`) with a server-authoritative Conversions API (CAPI) transactional outbox, DotAds Engine v2 guarantees optimal **Event Match Quality (EMQ 8.5–9.5+)**, deterministic **48-hour event deduplication**, and resilient **Cash On Delivery (COD) vs. Prepaid conversion attribution**.
+The target signal engine combines browser events with a server-authoritative transactional outbox. Deterministic IDs and COD/prepaid timing are required contracts; zero-loss delivery, Event Match Quality, provider acceptance, and attribution outcomes require measured provider evidence and are not guaranteed by this document.
+
+> **Current boundary:** runtime routes and `openapi.yaml` own endpoint truth. COD Purchase is emitted only after verified delivery/cash policy evidence; “confirmed” COD is not a Purchase. Missing provider adapters fail/retry rather than claim success.
 
 ```mermaid
 flowchart TD

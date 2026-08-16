@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { db, schema } from "@dotads/db";
-import { eq } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
+import { enqueuePurchaseEvents } from "./outbox-worker.ts";
 
 export const AUTOLARIS_PRODUCTION_ENDPOINT = "https://api-h2h.autolaris.com";
 
@@ -54,6 +55,8 @@ export interface CreateAutoLarisSessionRequest {
   orderId: string;
   amountMinor: number;
   paymentMethod: "QRIS" | "VA_BCA" | "VA_MANDIRI" | "VA_BRI" | "VA_BNI" | "VA_PERMATA";
+  idempotencyKey: string;
+  orderNumber: string;
 }
 
 export function verifyAutoLarisSignature(rawBody: string, signature: string, secretKey: string): boolean {
@@ -102,6 +105,44 @@ export async function createAutoLarisPaymentSession(req: CreateAutoLarisSessionR
     payment_method: req.paymentMethod,
   });
   const signature = createHmac("sha256", apiSecret).update(requestBody).digest("hex");
+  const processingResponse = {
+    orderId: req.orderId,
+    orderNumber: req.orderNumber,
+    status: "PAYMENT_PROCESSING" as const,
+    paymentMethod: req.paymentMethod,
+    totalMinor: req.amountMinor,
+  };
+  const boundary = await db.transaction(async (tx) => {
+    const [key] = await tx.select().from(schema.idempotencyKeys).where(and(
+      eq(schema.idempotencyKeys.tenantId, req.tenantId),
+      eq(schema.idempotencyKeys.key, req.idempotencyKey),
+    )).limit(1).for("update");
+    if (!key) throw new Error("Idempotency claim is missing");
+    if (key.responseCode && key.responseJson && key.state !== "ORDER_CREATED") {
+      return { callProvider: false as const, responseCode: key.responseCode as 201 | 202, response: key.responseJson };
+    }
+    if (key.state !== "ORDER_CREATED") {
+      return { callProvider: false as const, responseCode: 202 as const, response: processingResponse };
+    }
+    await tx.insert(schema.paymentTransactions).values({
+      tenantId: req.tenantId,
+      orderId: req.orderId,
+      gateway: "autolaris",
+      transactionId: null,
+      paymentMethod: req.paymentMethod,
+      amountMinor: req.amountMinor,
+      status: "PAYMENT_REQUESTING",
+    }).onConflictDoNothing();
+    await tx.update(schema.idempotencyKeys).set({
+      state: "PAYMENT_REQUESTING",
+      responseCode: 202,
+      responseJson: processingResponse,
+    }).where(eq(schema.idempotencyKeys.id, key.id));
+    return { callProvider: true as const, responseCode: 202 as const, response: processingResponse };
+  });
+  if (!boundary.callProvider) return boundary;
+
+  try {
   const response = await fetch(`${AUTOLARIS_PRODUCTION_ENDPOINT}${AUTOLARIS_PAYMENT_PATH}`, {
     method: "POST",
     headers: {
@@ -146,46 +187,165 @@ export async function createAutoLarisPaymentSession(req: CreateAutoLarisSessionR
     if (!vaNumber) throw new Error("AutoLaris did not return a virtual account number");
   }
 
-  const [tx] = await db
-    .insert(schema.paymentTransactions)
-    .values({
-      tenantId: req.tenantId,
-      orderId: req.orderId,
-      gateway: "autolaris",
+  const successResponse = {
+    orderId: req.orderId,
+    orderNumber: req.orderNumber,
+    status: "PENDING" as const,
+    paymentMethod: req.paymentMethod,
+    totalMinor: req.amountMinor,
+    ...(qrString ? { qrUrl: qrString } : {}),
+    ...(vaNumber ? { vaNumber } : {}),
+  };
+  await db.transaction(async (tx) => {
+    await tx.update(schema.paymentTransactions).set({
       transactionId,
-      paymentMethod: req.paymentMethod,
-      amountMinor: req.amountMinor,
       status: "PENDING",
       qrUrl: qrString,
       vaNumber,
       bankCode: req.paymentMethod.startsWith("VA_") ? req.paymentMethod.slice(3) : undefined,
-    })
-    .returning();
-
-  return tx;
+      updatedAt: new Date().toISOString(),
+    }).where(and(
+      eq(schema.paymentTransactions.tenantId, req.tenantId),
+      eq(schema.paymentTransactions.orderId, req.orderId),
+      eq(schema.paymentTransactions.gateway, "autolaris"),
+      eq(schema.paymentTransactions.status, "PAYMENT_REQUESTING"),
+    ));
+    await tx.update(schema.idempotencyKeys).set({ state: "COMPLETED", responseCode: 201, responseJson: successResponse })
+      .where(and(eq(schema.idempotencyKeys.tenantId, req.tenantId), eq(schema.idempotencyKeys.key, req.idempotencyKey)));
+  });
+  return { callProvider: true as const, responseCode: 201 as const, response: successResponse };
+  } catch {
+    await db.update(schema.idempotencyKeys).set({ state: "PAYMENT_AMBIGUOUS" }).where(and(
+      eq(schema.idempotencyKeys.tenantId, req.tenantId),
+      eq(schema.idempotencyKeys.key, req.idempotencyKey),
+      eq(schema.idempotencyKeys.state, "PAYMENT_REQUESTING"),
+    ));
+    return { callProvider: true as const, responseCode: 202 as const, response: processingResponse };
+  }
 }
 
-export async function reconcilePaymentStatus(transactionId: string, status: "PAID" | "SUCCESS" | "EXPIRED" | "FAILED") {
-  const [tx] = await db
-    .select()
-    .from(schema.paymentTransactions)
-    .where(eq(schema.paymentTransactions.transactionId, transactionId));
+export type AutoLarisCallbackStatus = "PAID" | "SUCCESS" | "EXPIRED" | "FAILED";
 
-  if (!tx) return null;
+export interface ReconcilePaymentInput {
+  tenantId: string;
+  transactionId: string;
+  orderId: string;
+  amountMinor: number;
+  status: AutoLarisCallbackStatus;
+}
 
-  const finalStatus = status === "PAID" ? "SUCCESS" : status;
+export interface ReconcilePaymentResult {
+  outcome: "transitioned" | "idempotent" | "stale" | "conflict" | "not_found";
+  purchaseEligible: boolean;
+}
 
-  await db
-    .update(schema.paymentTransactions)
-    .set({ status: finalStatus, updatedAt: new Date().toISOString() })
-    .where(eq(schema.paymentTransactions.id, tx.id));
+export async function reconcilePaymentStatus(input: ReconcilePaymentInput): Promise<ReconcilePaymentResult> {
+  const finalStatus = input.status === "PAID" ? "SUCCESS" : input.status;
+  const result = await db.transaction(async (dbTx): Promise<ReconcilePaymentResult> => {
+    const [payment] = await dbTx
+      .select()
+      .from(schema.paymentTransactions)
+      .where(and(
+        eq(schema.paymentTransactions.tenantId, input.tenantId),
+        eq(schema.paymentTransactions.orderId, input.orderId),
+        eq(schema.paymentTransactions.transactionId, input.transactionId),
+        eq(schema.paymentTransactions.amountMinor, input.amountMinor),
+        sql`lower(${schema.paymentTransactions.gateway}) = 'autolaris'`,
+      ))
+      .limit(1)
+      .for("update");
+    if (!payment) return { outcome: "not_found", purchaseEligible: false };
 
-  if (finalStatus === "SUCCESS") {
-    await db
-      .update(schema.orders)
-      .set({ status: "CONFIRMED", paymentStatus: "PAID", updatedAt: new Date().toISOString() })
-      .where(eq(schema.orders.id, tx.orderId));
-  }
+    const [order] = await dbTx
+      .select()
+      .from(schema.orders)
+      .where(and(
+        eq(schema.orders.id, input.orderId),
+        eq(schema.orders.tenantId, input.tenantId),
+        eq(schema.orders.totalMinor, input.amountMinor),
+      ))
+      .limit(1)
+      .for("update");
+    if (!order) return { outcome: "not_found", purchaseEligible: false };
+    if (payment.status === finalStatus) return { outcome: "idempotent", purchaseEligible: false };
+    if (payment.status !== "PENDING") return { outcome: "stale", purchaseEligible: false };
+    if (finalStatus === "SUCCESS" && (
+      ["CANCELLED", "REFUNDED"].includes(order.status) || order.paymentStatus === "REFUNDED"
+    )) {
+      return { outcome: "conflict", purchaseEligible: false };
+    }
 
-  return tx;
+    const now = new Date().toISOString();
+    const [updatedPayment] = await dbTx.update(schema.paymentTransactions).set({
+      status: finalStatus,
+      paidAt: finalStatus === "SUCCESS" ? now : null,
+      updatedAt: now,
+    }).where(and(
+      eq(schema.paymentTransactions.id, payment.id),
+      eq(schema.paymentTransactions.status, "PENDING"),
+    )).returning();
+    if (!updatedPayment) return { outcome: "stale", purchaseEligible: false };
+
+    let afterOrder = order;
+    if (finalStatus === "SUCCESS") {
+      const [updatedOrder] = await dbTx.update(schema.orders).set({
+        status: order.status === "PENDING_PAYMENT" ? "CONFIRMED" : order.status,
+        paymentStatus: "PAID",
+        updatedAt: now,
+      }).where(and(
+        eq(schema.orders.id, order.id),
+        eq(schema.orders.tenantId, input.tenantId),
+        notInArray(schema.orders.status, ["CANCELLED", "REFUNDED"]),
+        notInArray(schema.orders.paymentStatus, ["PAID", "REFUNDED"]),
+      )).returning();
+      if (!updatedOrder) throw new Error("Order lifecycle changed during payment reconciliation");
+      afterOrder = updatedOrder;
+
+      if (order.paymentMethod !== "COD") {
+        await dbTx.insert(schema.mengantarDispatchQueue).values({
+          tenantId: input.tenantId,
+          orderId: order.id,
+        }).onConflictDoNothing();
+      }
+    } else {
+      const [updatedOrder] = await dbTx.update(schema.orders).set({
+        paymentStatus: "FAILED",
+        updatedAt: now,
+      }).where(and(
+        eq(schema.orders.id, order.id),
+        eq(schema.orders.tenantId, input.tenantId),
+        eq(schema.orders.status, "PENDING_PAYMENT"),
+        eq(schema.orders.paymentStatus, "UNPAID"),
+      )).returning();
+      if (updatedOrder) afterOrder = updatedOrder;
+    }
+
+    const event = finalStatus === "SUCCESS" ? "PAYMENT_RECEIVED" : `PAYMENT_${finalStatus}`;
+    await dbTx.insert(schema.orderEvents).values({
+      tenantId: input.tenantId,
+      orderId: order.id,
+      event,
+      actor: "SYSTEM_AUTOLARIS_WEBHOOK",
+      metadataJson: { transactionId: input.transactionId, status: finalStatus, amountMinor: input.amountMinor },
+    });
+    await dbTx.insert(schema.auditLogs).values({
+      tenantId: input.tenantId,
+      actorId: "webhook:autolaris",
+      actorEmail: "autolaris@webhook.dotads.invalid",
+      actorRole: "SYSTEM_WEBHOOK",
+      action: finalStatus === "SUCCESS" ? "payment.received" : `payment.${finalStatus.toLowerCase()}`,
+      targetType: "order",
+      targetId: order.id,
+      metadataJson: {
+        transactionId: input.transactionId,
+        amountMinor: input.amountMinor,
+        before: { paymentTransactionStatus: payment.status, orderStatus: order.status, paymentStatus: order.paymentStatus },
+        after: { paymentTransactionStatus: updatedPayment.status, orderStatus: afterOrder.status, paymentStatus: afterOrder.paymentStatus },
+      },
+    });
+    return { outcome: "transitioned", purchaseEligible: finalStatus === "SUCCESS" };
+  });
+
+  if (result.purchaseEligible) await enqueuePurchaseEvents(input.orderId);
+  return result;
 }

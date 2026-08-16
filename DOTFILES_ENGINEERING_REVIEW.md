@@ -1,5 +1,7 @@
 # Dotfiles Senior Engineering System Audit & Review — DotAds v2
 
+> **Historical/superseded record — 2026-08-16.** This review is historical input, not a current DotAds requirement, architecture, task, or release record. Use the canonical root documents listed in `INDEX.md`.
+
 **Framework:** Dotfiles Master Senior Engineering Rules (`/home/ongki/.omp/agent/AGENTS.md`)  
 **Auditor:** Senior Staff Software & Systems Engineer  
 **Date:** 2026-08-15

@@ -1,5 +1,7 @@
 # DotAds Engine v2 — Public Authentication & Gate Hardening Task List
 
+> **Historical/superseded record — 2026-08-16.** This task list is superseded by permanent `T-1001+` tasks in `TASKS.md`; completion and evidence are owned by `STATUS.md` and `BUILD-LOG.md`.
+
 ## Phase 1: API Route Mounting & Security Gate Hardening
 - [ ] **Task 1**: Mount `betterAuth` HTTP handler on `/api/auth/*` in `apps/api/src/app.ts` so `better-auth` API routes are live.
 - [ ] **Task 2**: Guard `test-superadmin-token` bypass in `apps/api/src/middleware/auth.ts` to require `process.env.NODE_ENV === "test"`.

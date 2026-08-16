@@ -6,7 +6,9 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "check": "turbo check",
-    "test": "pnpm --filter @dotads/api smoke:rbac && pnpm --filter @dotads/api smoke:member-invitations && pnpm --filter @dotads/api smoke:domain-routing && pnpm --filter @dotads/api smoke:audit-log && pnpm --filter @dotads/api smoke:platform && pnpm --filter @dotads/api smoke:public-auth && pnpm run smoke:release",
+    "test": "pnpm --filter @dotads/integrations test && pnpm --filter @dotads/api smoke:rbac && pnpm --filter @dotads/api smoke:member-invitations && pnpm --filter @dotads/api smoke:invitation-acceptance && pnpm --filter @dotads/api smoke:domain-routing && pnpm --filter @dotads/api smoke:audit-log && pnpm --filter @dotads/api smoke:platform && pnpm --filter @dotads/api smoke:orders && pnpm --filter @dotads/api smoke:catalog && pnpm --filter @dotads/api smoke:dashboard && pnpm --filter @dotads/api smoke:public-auth && pnpm --filter @dotads/api smoke:public-order-idempotency && pnpm --filter @dotads/api smoke:webhooks && pnpm run smoke:release",
+    "test:clean-db": "bash scripts/test-clean-db.sh",
+    "docs:check": "node --experimental-strip-types scripts/check-docs.ts",
     "db:generate": "pnpm --filter @dotads/db db:generate",
     "db:migrate": "pnpm --filter @dotads/db db:migrate",
     "db:seed": "pnpm --filter @dotads/db db:seed",
@@ -16,7 +18,7 @@
     "@dotads/contracts": "workspace:*",
     "@dotads/db": "workspace:*",
     "@dotads/integrations": "workspace:*",
-    "drizzle-orm": "^0.38.4",
+    "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.5"
   },
   "devDependencies": {

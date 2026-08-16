@@ -1,10 +1,3 @@
----
-const url = new URL(Astro.request.url);
-const orderNumber = url.searchParams.get("orderNumber") || "ORD_SAMPLE";
-const vaNumber = url.searchParams.get("vaNumber");
-const qrUrl = url.searchParams.get("qrUrl");
----
-
 <!DOCTYPE html>
 <html lang="id">
   <head>
@@ -20,8 +13,9 @@ const qrUrl = url.searchParams.get("qrUrl");
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 100vh;
+        min-height: 100dvh;
         padding: 20px;
+        box-sizing: border-box;
       }
       .card {
         background: #ffffff;
@@ -33,9 +27,18 @@ const qrUrl = url.searchParams.get("qrUrl");
         text-align: center;
         box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
       }
-      .icon {
-        font-size: 3.5rem;
+      .status-icon {
+        display: inline-flex;
+        width: 56px;
+        height: 56px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
         margin-bottom: 16px;
+        background: #dcfce7;
+        color: #166534;
+        font-size: 1.75rem;
+        font-weight: 800;
       }
       h1 {
         font-size: 1.5rem;
@@ -64,48 +67,60 @@ const qrUrl = url.searchParams.get("qrUrl");
         padding: 12px 24px;
         border-radius: 8px;
         font-weight: 600;
+        min-height: 48px;
+        box-sizing: border-box;
       }
+      .btn:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.35); outline-offset: 3px; }
+      @media (max-width: 520px) { .card { padding: 28px 20px; } }
     </style>
   </head>
   <body>
     <div class="card">
-      <div class="icon">🎉</div>
-      <h1>Terima Kasih! Pesanan Anda Diterima</h1>
+      <div class="status-icon" aria-hidden="true">✓</div>
+      <h1>Pesanan Anda Diterima</h1>
       <p>Tim kami akan segera memproses dan mengonfirmasi pesanan Anda melalui WhatsApp.</p>
       
       <div class="order-box" id="order-number-display">
-        Nomor Pesanan: {orderNumber}
+        Nomor pesanan belum tersedia
       </div>
 
-      {vaNumber && (
-        <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:16px; border-radius:12px; margin:16px 0;">
-          <p style="font-weight:600; color:#1e40af; margin-bottom:4px;">Virtual Account Pembayaran:</p>
-          <p style="font-size:1.5rem; font-weight:800; color:#1d4ed8; letter-spacing:1px; margin:4px 0;">{vaNumber}</p>
-          <p style="font-size:0.85rem; color:#3b82f6;">Silakan lakukan transfer ke nomor Virtual Account di atas.</p>
-        </div>
-      )}
+      <div id="va-payment" hidden style="background:#eff6ff; border:1px solid #bfdbfe; padding:16px; border-radius:12px; margin:16px 0;">
+        <p style="font-weight:600; color:#1e40af; margin-bottom:4px;">Virtual Account Pembayaran:</p>
+        <p id="va-number" style="font-size:1.5rem; font-weight:800; color:#1d4ed8; letter-spacing:1px; margin:4px 0;"></p>
+        <p style="font-size:0.85rem; color:#3b82f6;">Silakan lakukan transfer ke nomor Virtual Account di atas.</p>
+      </div>
 
-      {qrUrl && (
-        <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:16px; border-radius:12px; margin:16px 0;">
-          <p style="font-weight:600; color:#166534; margin-bottom:8px;">Scan Kode QRIS di bawah ini:</p>
-          <img src={qrUrl} alt="Kode QRIS Pembayaran" style="max-width:200px; border-radius:8px; border:1px solid #cbd5e1;" />
-          <p style="font-size:0.85rem; color:#15803d; margin-top:8px;">Gunakan aplikasi M-Banking atau E-Wallet untuk scan.</p>
-        </div>
-      )}
+      <div id="qr-payment" hidden style="background:#f0fdf4; border:1px solid #bbf7d0; padding:16px; border-radius:12px; margin:16px 0;">
+        <p style="font-weight:600; color:#166534; margin-bottom:8px;">Scan Kode QRIS di bawah ini:</p>
+        <img id="qr-image" alt="Kode QRIS Pembayaran" style="max-width:200px; border-radius:8px; border:1px solid #cbd5e1;" />
+        <p style="font-size:0.85rem; color:#15803d; margin-top:8px;">Gunakan aplikasi M-Banking atau E-Wallet untuk scan.</p>
+      </div>
       <p>Simpan nomor pesanan ini untuk melakukan pelacakan status pengiriman paket Anda.</p>
       
       <a href="/" class="btn">Kembali ke Halaman Utama</a>
     </div>
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const orderNumber = params.get("orderNumber")?.trim();
+      const vaNumber = params.get("vaNumber")?.trim();
+      const qrUrl = params.get("qrUrl")?.trim();
+      const orderDisplay = document.getElementById("order-number-display");
+      const vaDisplay = document.getElementById("va-payment");
+      const vaNumberDisplay = document.getElementById("va-number");
+      const qrDisplay = document.getElementById("qr-payment");
+      const qrImage = document.getElementById("qr-image") as HTMLImageElement | null;
 
-    <script is:inline>
-      document.addEventListener("DOMContentLoaded", () => {
-        const params = new URLSearchParams(window.location.search);
-        const orderNo = params.get("orderNumber");
-        if (orderNo) {
-          const el = document.getElementById("order-number-display");
-          if (el) el.innerText = "Nomor Pesanan: " + orderNo;
-        }
-      });
+      if (orderDisplay && orderNumber && /^[A-Z0-9_-]{1,50}$/i.test(orderNumber)) {
+        orderDisplay.textContent = `Nomor Pesanan: ${orderNumber}`;
+      }
+      if (vaDisplay && vaNumberDisplay && vaNumber && /^\d{5,30}$/.test(vaNumber)) {
+        vaNumberDisplay.textContent = vaNumber;
+        vaDisplay.hidden = false;
+      }
+      if (qrDisplay && qrImage && qrUrl && (/^https:\/\/[^\s]+$/i.test(qrUrl) || /^data:image\/png;base64,[a-z0-9+/=]+$/i.test(qrUrl))) {
+        qrImage.src = qrUrl;
+        qrDisplay.hidden = false;
+      }
     </script>
   </body>
 </html>

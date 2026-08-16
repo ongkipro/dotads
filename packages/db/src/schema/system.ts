@@ -1,5 +1,6 @@
 import { pgTable, uuid, varchar, text, integer, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { tenants } from "./tenants.ts";
+import { orders } from "./orders.ts";
 
 export const auditLogs = pgTable(
   "audit_logs",
@@ -31,13 +32,17 @@ export const idempotencyKeys = pgTable(
     tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     key: varchar("key", { length: 255 }).notNull(),
     requestPath: varchar("request_path", { length: 255 }).notNull(),
-    responseCode: integer("response_code").notNull(),
-    responseJson: jsonb("response_json").notNull(),
+    requestHash: varchar("request_hash", { length: 64 }),
+    state: varchar("state", { length: 30 }).notNull().default("LEGACY_COMPLETED"),
+    orderId: uuid("order_id").references(() => orders.id, { onDelete: "cascade" }),
+    responseCode: integer("response_code"),
+    responseJson: jsonb("response_json"),
     createdAt: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
     expiresAt: timestamp("expires_at", { mode: "string" }).notNull(),
   },
   (table) => [
     index("idx_idempotency_tenant").on(table.tenantId),
+    index("idx_idempotency_tenant_state").on(table.tenantId, table.state),
     uniqueIndex("uniq_tenant_idempotency_key").on(table.tenantId, table.key),
   ]
 );

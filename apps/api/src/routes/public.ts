@@ -1,10 +1,9 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { randomBytes, randomUUID } from "node:crypto";
 import { auth } from "@dotads/auth";
-import { db, schema } from "@dotads/db";
-import { count, eq, sql } from "drizzle-orm";
+import { db, schema, withDatabaseContext, type DatabaseSessionContext } from "@dotads/db";
+import { and, eq } from "drizzle-orm";
 import {
-  bootstrapSuperAdminSchema,
   CreateOrderPublicSchema,
   DraftLeadSchema,
   registerMerchantSchema,
@@ -15,8 +14,10 @@ import { setSignedCookie } from "hono/cookie";
 import {
   fetchMengantarShippingRates,
   createAutoLarisPaymentSession,
-  evaluateReceiverRisk,
   createOrderWithFanout,
+  hashPublicOrderRequest,
+  IdempotencyConflictError,
+  readPublicOrderIdempotency,
 } from "@dotads/integrations";
 
 export const publicRouter = new OpenAPIHono();
@@ -31,6 +32,42 @@ const publicAuthUserSchema = z.object({
 });
 
 const authErrorSchema = z.object({ error: z.string() });
+
+function publicDatabaseContext(tenantId: string): DatabaseSessionContext {
+  return {
+    userId: "public",
+    userEmail: "public@dotads.invalid",
+    tenantId,
+    organizationId: "",
+    role: "END_BUYER",
+    tenantName: "",
+    tenantStatus: "active",
+  };
+}
+
+async function resolveActivePublicTenantContext(tenantId: string): Promise<DatabaseSessionContext | null> {
+  const context = publicDatabaseContext(tenantId);
+  const active = await withDatabaseContext(context, async () => {
+    const [tenant] = await db
+      .select({ id: schema.tenants.id })
+      .from(schema.tenants)
+      .where(and(eq(schema.tenants.id, tenantId), eq(schema.tenants.status, "active")))
+      .limit(1);
+    return tenant || null;
+  });
+  return active ? context : null;
+}
+
+function postgresErrorCode(error: unknown): string | undefined {
+  const seen = new Set<unknown>();
+  let current = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    if ("code" in current && typeof current.code === "string") return current.code;
+    current = "cause" in current ? current.cause : undefined;
+  }
+  return undefined;
+}
 
 // Public Merchant Self-Service Registration
 publicRouter.openapi(
@@ -67,7 +104,6 @@ publicRouter.openapi(
                 name: z.string(),
                 slug: z.string(),
               }),
-              token: z.string(),
               user: publicAuthUserSchema,
             }),
           },
@@ -88,12 +124,14 @@ publicRouter.openapi(
     const email = input.email.toLowerCase();
     const authContext = await auth.$context;
     const passwordHash = await authContext.password.hash(input.password);
+    const tenantId = randomUUID();
 
     try {
-      const provisioned = await db.transaction(async (tx) => {
+      const provisioned = await withDatabaseContext(publicDatabaseContext(tenantId), () => db.transaction(async (tx) => {
         const [tenant] = await tx
           .insert(schema.tenants)
           .values({
+            id: tenantId,
             name: input.storeName,
             slug: input.storeSlug,
             status: "active",
@@ -149,7 +187,7 @@ publicRouter.openapi(
         });
 
         return { tenant, user, organization, sessionToken };
-      });
+      }));
 
       await setSignedCookie(
         c,
@@ -177,7 +215,6 @@ publicRouter.openapi(
             name: provisioned.organization.name,
             slug: provisioned.organization.slug,
           },
-          token: provisioned.sessionToken,
           user: {
             id: provisioned.user.id,
             name: provisioned.user.name,
@@ -190,7 +227,7 @@ publicRouter.openapi(
         201
       );
     } catch (error) {
-      if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") {
+      if (postgresErrorCode(error) === "23505") {
         return c.json({ error: "Email or store slug already exists" }, 409);
       }
       throw error;
@@ -198,140 +235,28 @@ publicRouter.openapi(
   }
 );
 
-// First-Time Super Admin Bootstrap
+// HTTP bootstrap intentionally has no database authority. Operators must use the CLI.
 publicRouter.openapi(
   createRoute({
     method: "post",
     path: "/auth/bootstrap-superadmin",
-    summary: "Bootstrap the first Super Admin account",
-    request: {
-      body: {
-        required: true,
-        content: {
-          "application/json": {
-            schema: bootstrapSuperAdminSchema,
-          },
-        },
-      },
-    },
+    summary: "Disabled HTTP Super Admin bootstrap (operator CLI only)",
     responses: {
-      201: {
-        description: "Initial Super Admin account created",
-        content: {
-          "application/json": {
-            schema: z.object({
-              message: z.string(),
-              token: z.string(),
-              user: publicAuthUserSchema,
-            }),
-          },
-        },
-      },
       403: {
-        description: "Super Admin has already been bootstrapped",
-        content: {
-          "application/json": {
-            schema: authErrorSchema,
-          },
-        },
+        description: "HTTP bootstrap is disabled outside production; use the operator CLI",
+        content: { "application/json": { schema: authErrorSchema } },
       },
-      409: {
-        description: "Email already exists",
-        content: {
-          "application/json": {
-            schema: authErrorSchema,
-          },
-        },
+      404: {
+        description: "Endpoint is disabled in production; use the operator CLI",
+        content: { "application/json": { schema: authErrorSchema } },
       },
     },
   }),
   async (c) => {
-    const input = c.req.valid("json");
-    const email = input.email.toLowerCase();
-    const authContext = await auth.$context;
-    const passwordHash = await authContext.password.hash(input.password);
-
-    try {
-      const bootstrapped = await db.transaction(async (tx) => {
-        await tx.execute(sql`select pg_advisory_xact_lock(hashtext('dotads.bootstrap-super-admin'))`);
-
-        const [{ value: superAdminCount }] = await tx
-          .select({ value: count() })
-          .from(schema.users)
-          .where(eq(schema.users.role, "SUPER_ADMIN"));
-
-        if (superAdminCount > 0) {
-          return null;
-        }
-
-        const userId = randomUUID();
-        const [createdUser] = await tx
-          .insert(schema.users)
-          .values({
-            id: userId,
-            name: input.name,
-            email,
-            emailVerified: false,
-            role: "SUPER_ADMIN",
-          })
-          .returning();
-
-        await tx.insert(schema.accounts).values({
-          id: randomUUID(),
-          accountId: userId,
-          providerId: "credential",
-          userId,
-          password: passwordHash,
-        });
-
-        const sessionToken = randomBytes(32).toString("base64url");
-        await tx.insert(schema.sessions).values({
-          id: randomUUID(),
-          token: sessionToken,
-          userId,
-          expiresAt: new Date(Date.now() + authContext.sessionConfig.expiresIn * 1000),
-          userAgent: c.req.header("user-agent"),
-        });
-
-        return { user: createdUser, sessionToken };
-      });
-
-      if (!bootstrapped) {
-        return c.json({ error: "Super Admin already bootstrapped" }, 403);
-      }
-
-      await setSignedCookie(
-        c,
-        authContext.authCookies.sessionToken.name,
-        bootstrapped.sessionToken,
-        authContext.secret,
-        {
-          ...authContext.authCookies.sessionToken.attributes,
-          maxAge: authContext.sessionConfig.expiresIn,
-        }
-      );
-
-      return c.json(
-        {
-          message: "Super Admin bootstrapped",
-          token: bootstrapped.sessionToken,
-          user: {
-            id: bootstrapped.user.id,
-            name: bootstrapped.user.name,
-            email: bootstrapped.user.email,
-            emailVerified: bootstrapped.user.emailVerified,
-            image: bootstrapped.user.image,
-            role: "SUPER_ADMIN" as const,
-          },
-        },
-        201
-      );
-    } catch (error) {
-      if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") {
-        return c.json({ error: "Email already exists" }, 409);
-      }
-      throw error;
+    if (process.env.NODE_ENV === "production") {
+      return c.json({ error: "Not Found" }, 404);
     }
+    return c.json({ error: "HTTP bootstrap disabled; use the operator CLI" }, 403);
   }
 );
 
@@ -368,28 +293,32 @@ publicRouter.openapi(
           },
         },
       },
+      404: {
+        description: "Active storefront tenant not found",
+        content: { "application/json": { schema: z.object({ error: z.string() }) } },
+      },
     },
   }),
   async (c) => {
-    const tenantId = c.req.query("tenantId");
-    let storeName = "DotAds Official Store";
+    const { tenantId } = c.req.valid("query");
     let logoUrl: string | null = null;
     let helpPhone = "628111222333";
 
-    if (tenantId) {
+    const tenant = await withDatabaseContext(publicDatabaseContext(tenantId), async () => {
       const [tenant] = await db
-        .select({ name: schema.tenants.name })
+        .select({ name: schema.tenants.name, status: schema.tenants.status })
         .from(schema.tenants)
         .where(eq(schema.tenants.id, tenantId))
         .limit(1);
-      if (tenant) {
-        storeName = tenant.name;
-      }
+      return tenant;
+    });
+    if (!tenant || tenant.status !== "active") {
+      return c.json({ error: "Storefront not found" }, 404);
     }
 
     return c.json({
-      tenantId: tenantId || "2f2ca823-46bf-4ab5-a5fe-61a49d175fa8",
-      storeName,
+      tenantId,
+      storeName: tenant.name,
       logoUrl,
       helpPhone,
       activePaymentChannels: ["COD", "QRIS", "VA_BCA", "VA_MANDIRI", "VA_BRI", "VA_BSI"],
@@ -402,7 +331,7 @@ publicRouter.openapi(
         googleAdsConversionLabel: process.env.PUBLIC_GOOGLE_ADS_LABEL || "ab_cDEFG123",
         tiktokPixelId: process.env.PUBLIC_TIKTOK_PIXEL_ID || "C1234567890TT",
       },
-    });
+    }, 200);
   }
 );
 
@@ -410,8 +339,7 @@ publicRouter.openapi(
 async function verifyTurnstileToken(token?: string, remoteIp?: string): Promise<boolean> {
   const secretKey = process.env.TURNSTILE_SECRET_KEY;
   if (!secretKey) {
-    // Development or test bypass mode
-    return token !== "INVALID_TOKEN";
+    return process.env.NODE_ENV !== "production" && token !== "INVALID_TOKEN";
   }
   if (!token) return false;
 
@@ -590,7 +518,11 @@ publicRouter.openapi(
 
 // Embeddable Form Widget & Iframe Gateway
 publicRouter.get("/embed/form", (c) => {
-  const tenantId = c.req.query("tenantId") || "2f2ca823-46bf-4ab5-a5fe-61a49d175fa8";
+  const tenantIdResult = z.string().uuid().safeParse(c.req.query("tenantId") || "2f2ca823-46bf-4ab5-a5fe-61a49d175fa8");
+  if (!tenantIdResult.success) {
+    return c.json({ error: "Invalid tenantId" }, 400);
+  }
+  const tenantId = tenantIdResult.data;
   const html = `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -760,12 +692,21 @@ publicRouter.openapi(
           },
         },
       },
+      404: {
+        description: "Active storefront not found",
+        content: { "application/json": { schema: authErrorSchema } },
+      },
     },
   }),
   async (c) => {
-    const body = await c.req.json();
-    const rates = await fetchMengantarShippingRates(body);
-    return c.json(rates);
+    const body = c.req.valid("json");
+    const databaseContext = await resolveActivePublicTenantContext(body.tenantId);
+    if (!databaseContext) return c.json({ error: "Storefront not found" }, 404);
+    const rates = await withDatabaseContext(
+      databaseContext,
+      () => fetchMengantarShippingRates(body)
+    );
+    return c.json(rates, 200);
   }
 );
 
@@ -785,10 +726,29 @@ publicRouter.openapi(
           "application/json": { schema: z.object({ success: z.boolean(), leadId: z.string() }) },
         },
       },
+      404: {
+        description: "Active storefront not found",
+        content: { "application/json": { schema: authErrorSchema } },
+      },
     },
   }),
   async (c) => {
-    return c.json({ success: true, leadId: `lead_${Date.now()}` });
+    const body = c.req.valid("json");
+    const databaseContext = await resolveActivePublicTenantContext(body.tenantId);
+    if (!databaseContext) return c.json({ error: "Storefront not found" }, 404);
+    const [lead] = await withDatabaseContext(databaseContext, () =>
+      db.insert(schema.draftLeads).values({
+        tenantId: body.tenantId,
+        customerName: body.customerName,
+        customerPhone: body.customerPhone,
+        draftDataJson: {
+          productName: body.productName,
+          subdistrictId: body.subdistrictId,
+          attribution: body.attribution,
+        },
+      }).returning({ id: schema.draftLeads.id })
+    );
+    return c.json({ success: true, leadId: lead.id }, 200);
   }
 );
 
@@ -799,6 +759,9 @@ publicRouter.openapi(
     path: "/orders",
     summary: "Submit public customer order",
     request: {
+      headers: z.object({
+        "Idempotency-Key": z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/),
+      }),
       body: { content: { "application/json": { schema: CreateOrderPublicSchema } } },
     },
     responses: {
@@ -809,9 +772,8 @@ publicRouter.openapi(
             schema: z.object({
               orderId: z.string(),
               orderNumber: z.string(),
-              status: z.string(),
+              status: z.literal("PENDING"),
               paymentMethod: z.string(),
-              paymentUrl: z.string().optional(),
               vaNumber: z.string().optional(),
               qrUrl: z.string().optional(),
               totalMinor: z.number(),
@@ -819,50 +781,74 @@ publicRouter.openapi(
           },
         },
       },
+      202: {
+        description: "Payment provider outcome is ambiguous; manual recovery is required",
+        content: { "application/json": { schema: z.object({
+          orderId: z.string().uuid(), orderNumber: z.string(), status: z.literal("PAYMENT_PROCESSING"),
+          paymentMethod: z.string(), totalMinor: z.number().int().nonnegative(),
+        }).strict() } },
+      },
+      400: { description: "Invalid request or Idempotency-Key", content: { "application/json": { schema: authErrorSchema } } },
+      409: { description: "Idempotency key conflict or expiry", content: { "application/json": { schema: authErrorSchema } } },
       403: {
         description: "Turnstile bot verification failed",
         content: { "application/json": { schema: z.object({ error: z.string() }) } },
       },
+      404: {
+        description: "Active storefront not found",
+        content: { "application/json": { schema: authErrorSchema } },
+      },
     },
   }),
   async (c) => {
-    const body = await c.req.json();
+    const body = c.req.valid("json");
+    const idempotencyKey = c.req.valid("header")["Idempotency-Key"];
+    const requestHash = hashPublicOrderRequest(body);
+    const requestPath = "/api/v1/public/orders";
     const clientIp = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "127.0.0.1";
 
-    // 0. Verify Turnstile CAPTCHA Bot Token
+    const databaseContext = await resolveActivePublicTenantContext(body.tenantId);
+    if (!databaseContext) return c.json({ error: "Storefront not found" }, 404);
+
+    try {
+    const early = await withDatabaseContext(databaseContext, () =>
+      readPublicOrderIdempotency(body.tenantId, idempotencyKey, requestHash, requestPath)
+    );
+    if (early.kind === "response") return c.json(early.response as any, early.responseCode);
+
+    // 0. Verify Turnstile only for a new claim. Replays never depend on a consumed token or provider availability.
+    if (early.kind === "absent") {
     const isBotValid = await verifyTurnstileToken(body.turnstileToken, clientIp);
     if (!isBotValid) {
       return c.json({ error: "Verifikasi Turnstile bot gagal. Gagal memproses pesanan." }, 403);
     }
+    }
 
-    // 1. Create order & stage multi-platform ad conversion events (Meta, Google, TikTok)
-    const result = await createOrderWithFanout(body, 15);
+    const result = early.kind === "resume" ? early : await withDatabaseContext(databaseContext, () => createOrderWithFanout(body, {
+      key: idempotencyKey,
+      requestHash,
+      requestPath,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    }));
 
-    // 2. Evaluate receiver risk score with calculated order total
-    const riskResult = evaluateReceiverRisk({
-      customerPhone: body.customerPhone,
-      shippingAddress: body.shippingAddress,
-      subdistrictId: body.subdistrictId,
-      orderTotalMinor: result.totalMinor,
-    });
+    if ("response" in result && result.response && (body.paymentMethod === "COD" || result.replay)) {
+      return c.json(result.response as any, result.responseCode as 201 | 202);
+    }
+    if (!result.orderId || !result.orderNumber || result.totalMinor === undefined) {
+      throw new Error("Idempotent order state is incomplete");
+    }
 
     // 3. If prepaid method, generate AutoLaris payment transaction
-    let paymentInfo: { paymentUrl?: string; vaNumber?: string; qrUrl?: string } = {};
     if (body.paymentMethod !== "COD") {
-      const paymentTx = await createAutoLarisPaymentSession({
+      const paymentTx = await withDatabaseContext(databaseContext, () => createAutoLarisPaymentSession({
         tenantId: body.tenantId,
         orderId: result.orderId,
         amountMinor: result.totalMinor,
         paymentMethod: body.paymentMethod as any,
-      });
-
-      if (paymentTx) {
-        paymentInfo = {
-          paymentUrl: paymentTx.qrUrl || undefined,
-          vaNumber: paymentTx.vaNumber || undefined,
-          qrUrl: paymentTx.qrUrl || undefined,
-        };
-      }
+        idempotencyKey,
+        orderNumber: result.orderNumber,
+      }));
+      return c.json(paymentTx.response as any, paymentTx.responseCode);
     }
 
     return c.json(
@@ -872,11 +858,13 @@ publicRouter.openapi(
         status: "PENDING",
         paymentMethod: body.paymentMethod,
         totalMinor: result.totalMinor,
-        riskScore: riskResult.score,
-        ...paymentInfo,
       },
       201
     );
+    } catch (error) {
+      if (error instanceof IdempotencyConflictError) return c.json({ error: error.message }, 409);
+      throw error;
+    }
   }
 );
 

@@ -1,6 +1,7 @@
-import { db } from "../client.ts";
+import { db, resolveIdempotencyTenant, withDatabaseContext, type DatabaseSessionContext } from "../client.ts";
 import * as schema from "../schema/index.ts";
 import { eq } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 
 export interface ProvisionTenantInput {
   tenantName: string;
@@ -22,6 +23,20 @@ export interface ProvisionTenantResult {
 export async function provisionTenantTransaction(
   input: ProvisionTenantInput
 ): Promise<ProvisionTenantResult> {
+  const requestPath = "/api/v1/admin/provision";
+  const existingTenantId = await resolveIdempotencyTenant(input.idempotencyKey, requestPath);
+  const tenantId = existingTenantId || randomUUID();
+  const context: DatabaseSessionContext = {
+    userId: "tenant-provisioner",
+    userEmail: "provisioner@dotads.invalid",
+    tenantId,
+    organizationId: "",
+    role: "END_BUYER",
+    tenantName: input.tenantName,
+    tenantStatus: "active",
+  };
+
+  return withDatabaseContext(context, async () => {
   // 1. Check idempotency record
   const [existingKey] = await db
     .select()
@@ -39,6 +54,7 @@ export async function provisionTenantTransaction(
     const [tenant] = await tx
       .insert(schema.tenants)
       .values({
+        id: tenantId,
         name: input.tenantName,
         slug: input.tenantSlug,
         status: "active",
@@ -121,12 +137,13 @@ export async function provisionTenantTransaction(
     await tx.insert(schema.idempotencyKeys).values({
       tenantId: tenant.id,
       key: input.idempotencyKey,
-      requestPath: "/api/v1/admin/provision",
+      requestPath,
       responseCode: 201,
       responseJson: result as unknown as Record<string, unknown>,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     });
 
     return result;
+  });
   });
 }

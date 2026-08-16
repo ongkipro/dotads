@@ -1,5 +1,7 @@
 # DotAds Engine v2 — Comprehensive System-Wide Audit, Page Analysis & Architectural Roadmap
 
+> **Historical planning record — superseded on 2026-08-16 for release status.** Use `STATUS.md`, `TASKS.md`, and `BUILD-LOG.md` for current implementation truth and verification evidence.
+
 > **Status:** Active System Master Audit & Specification  
 > **Author:** Business System Architect & Full-Stack AI Engineer  
 > **Date:** 2026-08-14  

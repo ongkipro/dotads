@@ -1,5 +1,7 @@
 # DotAds Engine v2 — PRD: Public Authentication, Tenant Onboarding & Gate Hardening
 
+> **Historical/superseded record — 2026-08-16.** These feature requirements are superseded by the permanent `REQ-*` catalog in `PRD.md` and the contracts in `IAM.md` and `SECURITY.md`.
+
 ## Goals
 1. Implement production-grade, secure, self-service authentication and tenant onboarding workflows for DotAds Engine v2.
 2. Provide seamless user login (`/login`), merchant store signup (`/register`), and safe first-time Super Admin bootstrap (`/super-admin/setup`).

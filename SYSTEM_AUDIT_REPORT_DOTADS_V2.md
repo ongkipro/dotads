@@ -1,5 +1,7 @@
 # DotAds Engine v2 — Full System & Codebase Comprehensive Audit Report
 
+> **Historical/superseded record — 2026-08-16.** This dated audit is not a current source of requirements, tasks, architecture, release status, or evidence. Use `PRD.md`, the named domain owner documents, `TASKS.md`, `STATUS.md`, and `BUILD-LOG.md`.
+
 **Date:** 2026-08-15  
 **Auditor:** Senior Full-Stack System Architect & Security Lead  
 **Scope:** `@dotads/db`, `@dotads/auth`, `@dotads/contracts`, `@dotads/integrations`, `@dotads/form-runtime`, `apps/api`, `apps/admin`, `apps/storefront`  

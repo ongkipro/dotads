@@ -1,24 +1,19 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { ADMIN_PATHNAME_HEADER } from './lib/request-path';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(ADMIN_PATHNAME_HEADER, pathname);
 
-  // Allowed public auth paths
+  // Public auth paths must remain reachable even when a stale cookie exists.
+  // The server-rendered workspace entry point performs the authoritative
+  // session/role redirect.
   const publicPaths = ['/login', '/register', '/super-admin/setup'];
   
   if (publicPaths.includes(pathname)) {
-    // If they already have a session, redirect to /admin instead of showing login
-    const sessionCookie = 
-      request.cookies.get('better-auth.session_token')?.value || 
-      request.cookies.get('__Secure-better-auth.session_token')?.value || 
-      request.cookies.get('dotads_session')?.value || 
-      request.cookies.get('Authorization')?.value;
-      
-    if (sessionCookie) {
-      return NextResponse.redirect(new URL('/admin', request.url));
-    }
-    return NextResponse.next();
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   // Protect /admin, /super-admin, and root
@@ -34,13 +29,9 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
     
-    // If they access root '/' and have a session, redirect to /admin
-    if (pathname === '/') {
-      return NextResponse.redirect(new URL('/admin', request.url));
-    }
   }
 
-  return NextResponse.next();
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

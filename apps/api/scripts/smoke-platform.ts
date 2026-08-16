@@ -22,6 +22,12 @@ async function runPlatformSmoke() {
   assert.strictEqual(statsRes.status, 200, "GET /api/v1/platform/stats must return 200");
   const statsData = await statsRes.json();
   assert.ok(typeof statsData.totalTenants === "number", "stats must contain totalTenants count");
+  assert.strictEqual(statsData.securityAlertsCount, null, "Undefined security alert semantics must not return fabricated data");
+
+  const nonPlatformStats = await app.request("/api/v1/platform/stats", {
+    headers: { ...authHeaders, "x-user-role": "ADMIN" },
+  });
+  assert.strictEqual(nonPlatformStats.status, 403, "Tenant admins must not read platform-wide metrics");
 
   // 2. GET /api/v1/platform/tenants
   const tenantsRes = await app.request("/api/v1/platform/tenants", {
@@ -31,6 +37,10 @@ async function runPlatformSmoke() {
   assert.strictEqual(tenantsRes.status, 200, "GET /api/v1/platform/tenants must return 200");
   const tenantsList = await tenantsRes.json();
   assert.ok(Array.isArray(tenantsList), "tenants must be an array");
+  assert.ok(!("settingsJson" in tenantsList[0]), "Tenant list must not expose arbitrary settings JSON");
+  assert.deepStrictEqual(Object.keys(tenantsList[0]).sort(), [
+    "createdAt", "customDomain", "id", "name", "slug", "status", "tier", "updatedAt",
+  ]);
 
   // 3. POST /api/v1/platform/tenants (Provision new tenant)
   const newSlug = `test-store-${Date.now()}`;
@@ -65,19 +75,31 @@ async function runPlatformSmoke() {
   const impRes = await app.request(`/api/v1/platform/tenants/${createdTenant.id}/impersonate`, {
     method: "POST",
     headers: authHeaders,
+    body: JSON.stringify({ reason: "Investigating merchant support incident" }),
   });
-  assert.strictEqual(impRes.status, 200, "POST impersonate must return 200");
+  assert.strictEqual(impRes.status, 501, "Insecure placeholder impersonation must fail closed");
   const impData = await impRes.json();
-  assert.ok(impData.impersonationToken, "Response must include impersonationToken");
+  assert.match(impData.error, /disabled/, "Response must explain why impersonation is unavailable");
 
   // 6. GET /api/v1/platform/audit-logs
-  const auditRes = await app.request("/api/v1/platform/audit-logs", {
+  const auditRes = await app.request(`/api/v1/platform/audit-logs?limit=1&offset=0&tenantId=${createdTenant.id}&action=tenant.suspended`, {
     method: "GET",
     headers: authHeaders,
   });
   assert.strictEqual(auditRes.status, 200, "GET /api/v1/platform/audit-logs must return 200");
-  const auditLogs = await auditRes.json();
-  assert.ok(Array.isArray(auditLogs), "Audit logs must return array");
+  const auditPayload = await auditRes.json();
+  assert.strictEqual(auditPayload.items.length, 1, "Audit pagination limit must be enforced");
+  assert.strictEqual(auditPayload.items[0].action, "tenant.suspended", "Audit exact action filter must be enforced");
+  assert.strictEqual(auditPayload.items[0].tenantId, createdTenant.id, "Audit tenant filter must be enforced");
+  assert.deepStrictEqual(Object.keys(auditPayload.items[0]).sort(), [
+    "action", "actorEmail", "actorId", "actorRole", "createdAt", "id", "targetId", "targetType", "tenantId",
+  ]);
+  assert.deepStrictEqual(auditPayload.pagination, { limit: 1, offset: 0, total: 1 });
+
+  const invalidPagination = await app.request("/api/v1/platform/audit-logs?limit=101", {
+    headers: authHeaders,
+  });
+  assert.strictEqual(invalidPagination.status, 400, "Audit log limit above 100 must be rejected");
 
   console.log("SUPER ADMIN PLATFORM ROUTER SMOKE TEST PASSED!");
   process.exit(0);

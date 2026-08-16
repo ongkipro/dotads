@@ -1,5 +1,7 @@
 # DotAds Engine v2 — Final Master System-Wide Audit & Validation Report
 
+> **Historical record — superseded on 2026-08-16.** The production-readiness conclusions in this report were based on narrow smoke checks and are withdrawn. Use `STATUS.md`, `TASKS.md`, and `BUILD-LOG.md` as the current release sources of truth.
+
 **Date:** 2026-08-15  
 **Project:** DotAds Engine v2 (`/home/ongki/Projects/dotads`)  
 **Auditors:** Master Full-Stack System Architect & Security Lead + 4 Parallel Specialist Audit Agents  

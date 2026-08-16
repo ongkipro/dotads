@@ -1,4 +1,5 @@
 import { pgTable, uuid, varchar, text, integer, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { tenants } from "./tenants.ts";
 import { products, productVariants } from "./products.ts";
 
@@ -38,7 +39,9 @@ export const orders = pgTable(
   },
   (table) => [
     index("idx_orders_tenant").on(table.tenantId),
+    index("idx_orders_tenant_created_at").on(table.tenantId, table.createdAt),
     index("idx_orders_cnote").on(table.cnoteNo),
+    uniqueIndex("uniq_orders_cnote_no").on(table.cnoteNo).where(sql`${table.cnoteNo} is not null`),
     uniqueIndex("uniq_tenant_order_num").on(table.tenantId, table.orderNumber),
   ]
 );

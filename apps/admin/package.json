@@ -7,7 +7,19 @@
     "dev": "next dev -H 0.0.0.0 -p 3000",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3000",
-    "smoke:admin-navigation": "node --experimental-strip-types scripts/smoke-admin-navigation.ts"
+    "smoke:admin-navigation": "node --experimental-strip-types scripts/smoke-admin-navigation.ts",
+    "smoke:admin-route-access": "node --experimental-strip-types scripts/smoke-admin-route-access.ts",
+    "smoke:session-context": "node --experimental-strip-types scripts/smoke-session-context.ts",
+    "smoke:sign-out": "node --experimental-strip-types scripts/smoke-sign-out.ts",
+    "smoke:workspace-selection": "node --experimental-strip-types scripts/smoke-workspace-selection.ts",
+    "smoke:platform-tenants": "node --experimental-strip-types scripts/smoke-platform-tenants.ts",
+    "smoke:platform-observability": "node --experimental-strip-types scripts/smoke-platform-observability.ts",
+    "smoke:admin-orders": "node --experimental-strip-types scripts/smoke-admin-orders.ts",
+    "smoke:catalog-products": "node --experimental-strip-types scripts/smoke-catalog-products.ts",
+    "smoke:admin-members": "node --experimental-strip-types scripts/smoke-admin-members.ts",
+    "smoke:admin-dashboard": "node --experimental-strip-types scripts/smoke-admin-dashboard.ts",
+    "smoke:invitation-acceptance": "node --experimental-strip-types scripts/smoke-invitation-acceptance.ts",
+    "smoke:compact-orders": "node --experimental-strip-types scripts/smoke-compact-orders.ts"
   },
   "dependencies": {
     "@dotads/auth": "workspace:*",

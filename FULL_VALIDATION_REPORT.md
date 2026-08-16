@@ -1,5 +1,7 @@
 # DotAds Engine v2 — Full System Validation Report & Core Shortcomings Audit
 
+> **Historical record — superseded on 2026-08-16.** The production-readiness and completion claims below are not current release evidence. Use `STATUS.md`, `TASKS.md`, and `BUILD-LOG.md` as the canonical sources of truth.
+
 > **Report Date:** 2026-08-14  
 > **Repository:** `DotAds Engine v2` (`ongkipro/dotads`)  
 > **Audited Modules:** Apps (`admin`, `storefront`, `api`), Packages (`db`, `auth`, `contracts`, `form-runtime`, `integrations`, `ui`, `config`), & Specs (`/docs/*`)  

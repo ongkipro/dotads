@@ -57,8 +57,8 @@ export const FormSchemaDefinition = z.object({
 });
 
 export const CreateFormSchemaContract = z.object({
-  title: z.string().min(1),
-  slug: z.string().min(1),
+  title: z.string().trim().min(1).max(255),
+  slug: z.string().trim().min(1).max(255).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   mode: FormSchemaModeEnum.default("hybrid"),
   schemaJson: FormSchemaDefinition,
 });
@@ -107,8 +107,8 @@ export const LandingPageDefinition = z.object({
 });
 
 export const CreateLandingPageContract = z.object({
-  title: z.string().min(1),
-  slug: z.string().min(1),
+  title: z.string().trim().min(1).max(255),
+  slug: z.string().trim().min(1).max(255).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   productId: z.string().uuid().optional(),
   formSchemaId: z.string().uuid().optional(),
   pageJson: LandingPageDefinition,

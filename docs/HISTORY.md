@@ -20,3 +20,10 @@
 
 - **Headless SDK:** Added `STOREFRONT-HEADLESS-SDK.md` defining the turnkey API contract for custom frontends (Next.js, Remix, SvelteKit, Astro, Nuxt, mobile apps) connecting to DotAds Engine v2 via public REST API.
 - **Docker & Coolify:** Formalized `docker-compose.yml` for local development (PostgreSQL 16) and `docker-compose.coolify.yml` for one-click VPS self-hosting via Coolify with multi-stage Dockerfiles, Traefik reverse proxy, and automated SSL.
+## 2026-08-15 — System-Wide Master Audit, Gate Hardening, Public Auth & Tokophi UX Perfection
+
+- **System-Wide Audit & Refactoring**: Conducted full static code and security audit. Fixed AutoLaris HMAC raw body SHA-256 signature verification (`timingSafeEqual`), implemented outbox event deduplication (`uniq_tenant_platform_event`), repaired Mengantar 3PL API payload formatting, and added form runtime data retention guards.
+- **Public Auth & Gate Hardening**: Mounted `betterAuth` HTTP handler at `/api/auth/*`. Strictly locked synthetic `test-superadmin-token` bypass and `x-tenant-id` header overrides to `NODE_ENV === "test"`. Added public merchant onboarding (`POST /api/v1/public/auth/register-merchant`) and super admin setup (`POST /api/v1/public/auth/bootstrap-superadmin`) with PostgreSQL transaction advisory locking.
+- **Admin UI & Auth Guard**: Created `/login`, `/register`, and `/super-admin/setup` pages in Next.js 15 Admin App. Added Next.js Middleware (`middleware.ts`) to guard `/admin/*` and `/super-admin/*` routes, redirecting unauthenticated users. Added clean sign out handoff.
+- **Tokophi UX Perfection**: Added `:not(:defined)` pulse skeleton CSS bounds to `<dotads-form>` in Astro storefront to achieve Cumulative Layout Shift (CLS) < 0.02. Added responsive sticky mobile CTA bar with smooth scroll.
+- **Parallel Master Validation**: Executed 4 parallel specialist agents (`WholeRepoSecurityAudit`, `WholeRepoArchitectureAudit`, `WholeRepoFrontendAudit`, `WholeRepoTestingValidation`). Verified 100% build pass (`pnpm build`) and 100% smoke test pass across all 7 suites (`NODE_ENV=test pnpm test`). Generated master report `FINAL_SYSTEM_WIDE_AUDIT_REPORT_DOTADS_V2.md`.

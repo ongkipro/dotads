@@ -14,10 +14,13 @@
     "db:migrate": "node --experimental-strip-types scripts/migrate.ts",
     "db:seed": "node --experimental-strip-types scripts/seed.ts",
     "smoke:tenant-isolation": "node --experimental-strip-types scripts/smoke-tenant-isolation.ts",
-    "smoke:provision-tenant": "node --experimental-strip-types scripts/smoke-provision-tenant.ts"
+    "smoke:tenant-rls": "node --experimental-strip-types scripts/smoke-tenant-rls.ts",
+    "smoke:provision-tenant": "node --experimental-strip-types scripts/smoke-provision-tenant.ts",
+    "smoke:platform-least-privilege": "node --experimental-strip-types scripts/smoke-platform-least-privilege.ts",
+    "audit:rls": "node --experimental-strip-types scripts/audit-rls.ts"
   },
   "dependencies": {
-    "drizzle-orm": "^0.38.4",
+    "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.5"
   },
   "devDependencies": {

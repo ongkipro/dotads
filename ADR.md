@@ -1,5 +1,7 @@
 # DotAds Engine v2 — ADR
 
+> **Compatibility record.** `DECISIONS.md` owns active architecture decisions. Entries below preserve legacy ADR identifiers but do not override current executable behavior or release blockers.
+
 ## ADR-001 — PostgreSQL + Drizzle over Cloudflare D1 fleet
 Status: Accepted
 

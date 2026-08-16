@@ -22,6 +22,97 @@
       "when": 1786800000000,
       "tag": "0002_add_user_role",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786878000000,
+      "tag": "0003_immutable_audit_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786881600000,
+      "tag": "0004_tenant_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786885200000,
+      "tag": "0005_session_workspace_resolution",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786888800000,
+      "tag": "0006_workspace_selection",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786892400000,
+      "tag": "0007_unique_dispatch_queue_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786896000000,
+      "tag": "0008_catalog_invariants",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786899600000,
+      "tag": "0009_unique_pending_invitation_email",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786903200000,
+      "tag": "0010_monotonic_catalog_updated_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1786906800000,
+      "tag": "0011_dashboard_tenant_created_at_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786910400000,
+      "tag": "0012_accept_tenant_invitation",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786914000000,
+      "tag": "0013_platform_role_least_privilege",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1786917600000,
+      "tag": "0014_webhook_binding_invariants",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1786921200000,
+      "tag": "0015_public_order_idempotency",
+      "breakpoints": true
     }
   ]
 }

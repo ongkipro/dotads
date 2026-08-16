@@ -1,0 +1,35 @@
+export const CATALOG_PRODUCTS_PATH = "/api/v1/catalog/products";
+export type ProductStatus = "draft" | "active" | "archived";
+export interface CatalogVariant { id: string; title: string; sku: string | null; stockQuantity: number; priceMinor: number; compareAtPriceMinor: number | null; weightGrams: number; createdAt: string; updatedAt: string }
+export interface CatalogProduct { id: string; name: string; slug: string; description: string | null; status: ProductStatus; currency: "IDR"; priceMinor: number; compareAtPriceMinor: number | null; weightGrams: number; images: string[]; googleCategoryId: number | null; googleCategoryName: string | null; gtin: string | null; mpn: string | null; brand: string | null; primaryVariant: CatalogVariant | null; createdAt: string; updatedAt: string }
+export interface CatalogPage { items: CatalogProduct[]; pagination: { limit: number; offset: number; total: number } }
+export interface ProductInput { name: string; slug: string; description: string | null; status: ProductStatus; priceMinor: number; compareAtPriceMinor: number | null; weightGrams: number; images: string[]; gtin: string | null; brand: string | null; primaryVariant: { title: string; sku: string | null; stockQuantity: number } }
+export class CatalogError extends Error { readonly status: number; readonly code: string | null; readonly current: CatalogProduct | null; constructor(message: string, status: number, code: string | null = null, current: CatalogProduct | null = null) { super(message); this.status = status; this.code = code; this.current = current; } }
+
+const statuses = ["draft", "active", "archived"] as const;
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const slug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
+const string = (value: unknown): value is string => typeof value === "string";
+const nullableString = (value: unknown): value is string | null => value === null || string(value);
+const integer = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value >= 0;
+const instant = (value: unknown): value is string => string(value) && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) && !Number.isNaN(Date.parse(value));
+const image = (value: unknown): value is string => string(value) && value.length > 0 && value.length <= 2048 && ((value.startsWith("/") && !value.startsWith("//")) || /^https?:\/\//.test(value));
+function invalid(): never { throw new Error("API katalog mengembalikan data yang tidak valid."); }
+function parseVariant(value: unknown): CatalogVariant {
+  if (!object(value) || !string(value.id) || !uuid.test(value.id) || !string(value.title) || !nullableString(value.sku) || !integer(value.stockQuantity) || !integer(value.priceMinor) || !(value.compareAtPriceMinor === null || (integer(value.compareAtPriceMinor) && value.compareAtPriceMinor >= value.priceMinor)) || !integer(value.weightGrams) || value.weightGrams < 1 || !instant(value.createdAt) || !instant(value.updatedAt)) invalid();
+  return value as unknown as CatalogVariant;
+}
+export function parseCatalogProduct(value: unknown): CatalogProduct {
+  if (!object(value) || !string(value.id) || !uuid.test(value.id) || !string(value.name) || !string(value.slug) || !slug.test(value.slug) || !nullableString(value.description) || !statuses.includes(value.status as ProductStatus) || value.currency !== "IDR" || !integer(value.priceMinor) || !(value.compareAtPriceMinor === null || (integer(value.compareAtPriceMinor) && value.compareAtPriceMinor >= value.priceMinor)) || !integer(value.weightGrams) || value.weightGrams < 1 || !Array.isArray(value.images) || value.images.length > 20 || !value.images.every(image) || !(value.googleCategoryId === null || integer(value.googleCategoryId)) || !nullableString(value.googleCategoryName) || !nullableString(value.gtin) || (value.gtin !== null && !/^\d{1,14}$/.test(value.gtin)) || !nullableString(value.mpn) || !nullableString(value.brand) || !instant(value.createdAt) || !instant(value.updatedAt)) invalid();
+  return { ...(value as unknown as CatalogProduct), primaryVariant: value.primaryVariant === null ? null : parseVariant(value.primaryVariant) };
+}
+export function parseCatalogPage(value: unknown): CatalogPage {
+  if (!object(value) || !Array.isArray(value.items) || !object(value.pagination) || !integer(value.pagination.limit) || !integer(value.pagination.offset) || !integer(value.pagination.total)) invalid();
+  return { items: value.items.map(parseCatalogProduct), pagination: value.pagination as unknown as CatalogPage["pagination"] };
+}
+async function payload(response: Response): Promise<unknown> { const body: unknown = await response.json().catch(() => null); if (!response.ok) { const message = object(body) && string(body.error) ? body.error : `Permintaan katalog gagal (${response.status}).`; const code = object(body) && string(body.code) ? body.code : null; let current: CatalogProduct | null = null; if (object(body) && body.current) { try { current = parseCatalogProduct(body.current); } catch {} } throw new CatalogError(message, response.status, code, current); } return body; }
+export async function listCatalogProducts(filters: { limit?: number; offset?: number; status?: ProductStatus; query?: string }, fetcher: typeof fetch = fetch): Promise<CatalogPage> { const params = new URLSearchParams(); Object.entries(filters).forEach(([key, value]) => { if (value !== undefined && value !== "") params.set(key, String(value)); }); return parseCatalogPage(await payload(await fetcher(`${CATALOG_PRODUCTS_PATH}?${params}`, { credentials: "same-origin", cache: "no-store" }))); }
+export async function createCatalogProduct(input: ProductInput, fetcher: typeof fetch = fetch): Promise<CatalogProduct> { return parseCatalogProduct(await payload(await fetcher(CATALOG_PRODUCTS_PATH, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(input) }))); }
+export async function updateCatalogProduct(id: string, input: ProductInput, expectedUpdatedAt: string, fetcher: typeof fetch = fetch): Promise<CatalogProduct> { return parseCatalogProduct(await payload(await fetcher(`${CATALOG_PRODUCTS_PATH}/${encodeURIComponent(id)}`, { method: "PATCH", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...input, expectedUpdatedAt }) }))); }
+export async function archiveCatalogProduct(id: string, expectedUpdatedAt: string, fetcher: typeof fetch = fetch): Promise<{ product: CatalogProduct; alreadyArchived: boolean }> { const body = await payload(await fetcher(`${CATALOG_PRODUCTS_PATH}/${encodeURIComponent(id)}/archive`, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedUpdatedAt }) })); if (!object(body) || typeof body.alreadyArchived !== "boolean") invalid(); return { product: parseCatalogProduct(body.product), alreadyArchived: body.alreadyArchived }; }

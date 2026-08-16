@@ -22,6 +22,7 @@ async function runAdminNavigationSmoke() {
   // 4. CS navigation assertion
   const csNav = getNavigationForRole("CUSTOMER_SERVICE");
   assert.strictEqual(csNav.some((item) => item.href === "/admin/orders"), true);
+  assert.strictEqual(csNav.some((item) => item.href === "/admin/settings/members"), true);
   assert.strictEqual(csNav.some((item) => item.href === "/admin/builders/forms"), false);
 
   console.log("6-ROLE ADAPTIVE ADMIN NAVIGATION SMOKE TEST PASSED!");

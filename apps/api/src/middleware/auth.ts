@@ -1,7 +1,10 @@
 import type { Context, Next } from "hono";
 import { auth, hasPermission, type Role } from "@dotads/auth";
-import { db, schema } from "@dotads/db";
-import { and, eq } from "drizzle-orm";
+import {
+  resolveDatabaseSessionContext,
+  resolveUniqueSessionWorkspace,
+  withDatabaseContext,
+} from "@dotads/db";
 
 export interface AuthContext {
   userId: string;
@@ -9,6 +12,8 @@ export interface AuthContext {
   tenantId: string;
   organizationId: string;
   role: Role;
+  tenantName: string;
+  tenantStatus: string;
 }
 
 export type AppEnv = {
@@ -17,20 +22,41 @@ export type AppEnv = {
   };
 };
 
+export function resolveEffectiveRole(globalRole: unknown, memberRole?: unknown): Role {
+  if (globalRole === "SUPER_ADMIN") return "SUPER_ADMIN";
+  if (
+    memberRole === "TENANT_OWNER" ||
+    memberRole === "ADMIN" ||
+    memberRole === "ADVERTISER" ||
+    memberRole === "CUSTOMER_SERVICE" ||
+    memberRole === "END_BUYER"
+  ) {
+    return memberRole;
+  }
+  return "END_BUYER";
+}
+
+export function tenantStatusAllowsAccess(status: unknown): boolean {
+  return status === "active";
+}
+
 export async function authMiddleware(c: Context<AppEnv>, next: Next) {
   const sessionToken = c.req.header("Authorization")?.replace("Bearer ", "") || c.req.header("x-session-token");
 
   // Test-only session bypass
   if (process.env.NODE_ENV === "test" && sessionToken === "test-superadmin-token") {
     const role = (c.req.header("x-user-role") as Role) || "SUPER_ADMIN";
-    c.set("auth", {
+    const testContext: AuthContext = {
       userId: c.req.header("x-user-id") || "usr_superadmin_01",
       userEmail: c.req.header("x-user-email") || "superadmin@dotads.com",
       tenantId: c.req.header("x-tenant-id") || "2f2ca823-46bf-4ab5-a5fe-61a49d175fa8",
       organizationId: "org_superadmin_01",
       role,
-    });
-    return await next();
+      tenantName: "Test Tenant",
+      tenantStatus: "active",
+    };
+    c.set("auth", testContext);
+    return process.env.DATABASE_URL ? withDatabaseContext(testContext, next) : next();
   }
 
   // Parse session with better-auth
@@ -49,24 +75,45 @@ export async function authMiddleware(c: Context<AppEnv>, next: Next) {
   }
 
   const userId = sessionRes.user.id;
-  const activeOrgId = sessionRes.session.activeOrganizationId;
+  let activeOrgId = sessionRes.session.activeOrganizationId;
   // Resolve tenant identity and organization-scoped role. Super Admin is global.
   let tenantId = "";
-  let role: Role = sessionRes.user.role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "END_BUYER";
+  let role = resolveEffectiveRole(sessionRes.user.role);
+  let tenantName = "";
+  let tenantStatus = "";
 
-  if (activeOrgId) {
-    const [org] = await db.select().from(schema.organizations).where(eq(schema.organizations.id, activeOrgId));
-    if (org) {
-      tenantId = org.tenantId;
+  if (!activeOrgId && role !== "SUPER_ADMIN") {
+    const resolution = await resolveUniqueSessionWorkspace(userId, sessionRes.session.id);
+    if (resolution.workspaceCount > 1) {
+      return c.json({
+        error: "Workspace selection required",
+        code: "WORKSPACE_SELECTION_REQUIRED",
+        workspaceSelectionRequired: true,
+      }, 409);
     }
+    if (resolution.workspaceCount === 1 && resolution.organizationId && resolution.tenantId) {
+      activeOrgId = resolution.organizationId;
+      tenantId = resolution.tenantId;
+      tenantName = resolution.tenantName || "";
+      tenantStatus = resolution.tenantStatus || "";
+      role = resolveEffectiveRole(role, resolution.role);
+    }
+  }
 
-    const [member] = await db
-      .select()
-      .from(schema.members)
-      .where(and(eq(schema.members.organizationId, activeOrgId), eq(schema.members.userId, userId)));
+  if (activeOrgId && !tenantId) {
+    const sessionContext = await resolveDatabaseSessionContext(userId, activeOrgId);
+    tenantId = sessionContext?.tenantId || "";
+    tenantName = sessionContext?.tenantName || "";
+    tenantStatus = sessionContext?.tenantStatus || "";
+    role = resolveEffectiveRole(role, sessionContext?.role);
 
-    if (member) {
-      role = member.role as Role;
+    if (role !== "SUPER_ADMIN") {
+      if (!sessionContext) {
+        return c.json({ error: "Forbidden: Active tenant membership required" }, 403);
+      }
+      if (!tenantStatusAllowsAccess(sessionContext.tenantStatus)) {
+        return c.json({ error: "Forbidden: Tenant is not active" }, 403);
+      }
     }
   }
 
@@ -76,15 +123,22 @@ export async function authMiddleware(c: Context<AppEnv>, next: Next) {
     tenantId = headerTenant;
   }
 
-  c.set("auth", {
+  const authContext: AuthContext = {
     userId,
     userEmail: sessionRes.user.email,
     tenantId,
     organizationId: activeOrgId || "",
     role,
-  });
+    tenantName,
+    tenantStatus,
+  };
+  c.set("auth", authContext);
 
-  await next();
+  if (role !== "SUPER_ADMIN" && !tenantId) {
+    return c.json({ error: "Forbidden: Active tenant organization required" }, 403);
+  }
+
+  return withDatabaseContext(authContext, next);
 }
 
 export function requirePermission(permission: string) {

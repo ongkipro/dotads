@@ -44,7 +44,14 @@ export const ROLE_NAVIGATION: Record<Role, NavItem[]> = {
     { title: "Form Builder COD", href: "/admin/builders/forms", iconName: "FileSpreadsheet", section: "Builder & Iklan" },
     { title: "Pelacakan Iklan CAPI", href: "/admin/tracking", iconName: "Radio", section: "Builder & Iklan" },
     { title: "Ekspedisi Mengantar", href: "/admin/integrations/mengantar", iconName: "Truck", section: "Logistik & Keuangan" },
+    { title: "Cek Ongkir & WA", href: "/admin/operations/shipping-check", iconName: "Search", section: "Logistik & Keuangan" },
     { title: "Rekonsiliasi & Payment", href: "/admin/reconciliation", iconName: "Receipt", section: "Logistik & Keuangan" },
+    { title: "Identitas Toko", href: "/admin/settings/store", iconName: "Store", section: "Pengaturan Toko" },
+    { title: "Alamat Gudang", href: "/admin/settings/gudang", iconName: "MapPin", section: "Pengaturan Toko" },
+    { title: "Template WA CRM", href: "/admin/settings/crm", iconName: "MessageSquare", section: "Pengaturan Toko" },
+    { title: "Anggota Tim", href: "/admin/settings/members", iconName: "Users", section: "Pengaturan Toko" },
+    { title: "Log Aktivitas", href: "/admin/settings/audit-logs", iconName: "ShieldCheck", section: "Pengaturan Toko" },
+    { title: "Profil Akun", href: "/admin/profile", iconName: "User", section: "Pengaturan Toko" },
   ],
   ADVERTISER: [
     { title: "Ringkasan", href: "/admin", iconName: "LayoutDashboard", section: "Utama" },
@@ -56,6 +63,8 @@ export const ROLE_NAVIGATION: Record<Role, NavItem[]> = {
   CUSTOMER_SERVICE: [
     { title: "Ringkasan", href: "/admin", iconName: "LayoutDashboard", section: "Utama" },
     { title: "Kelola Pesanan", href: "/admin/orders", iconName: "ShoppingCart", section: "Utama" },
+    { title: "Katalog Produk", href: "/admin/products", iconName: "Package", section: "Utama" },
+    { title: "Anggota Tim", href: "/admin/settings/members", iconName: "Users", section: "Pengaturan Toko" },
     { title: "Status Pengiriman", href: "/admin/integrations/mengantar", iconName: "Truck", section: "Logistik & Keuangan" },
     { title: "Cek Ongkir & WA", href: "/admin/operations/shipping-check", iconName: "Search", section: "Logistik & Keuangan" },
   ],

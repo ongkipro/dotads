@@ -1,6 +1,9 @@
 export class DotAdsFormElement extends HTMLElement {
   private shadow: ShadowRoot;
   private isSubmitting: boolean = false;
+  private pendingIdempotencyKey: string | null = null;
+  private pendingOrderBody: string | null = null;
+  private pendingOrderFingerprint: string | null = null;
   private formData: Record<string, string> = {};
   constructor() {
     super();
@@ -276,7 +279,7 @@ export class DotAdsFormElement extends HTMLElement {
           padding: 10px 14px;
           border: 1px solid #cbd5e1;
           border-radius: 8px;
-          font-size: 0.95rem;
+          font-size: 1rem;
           box-sizing: border-box;
           transition: border-color 0.15s ease;
         }
@@ -343,6 +346,7 @@ export class DotAdsFormElement extends HTMLElement {
     const nextBtn = this.shadow.querySelector("#next-step-btn") as HTMLButtonElement;
     if (nextBtn) {
       nextBtn.addEventListener("click", () => {
+        if (!form?.reportValidity()) return;
         this.saveInputState();
         this.handleDraftLead();
         this.currentStep = 2;
@@ -447,10 +451,20 @@ export class DotAdsFormElement extends HTMLElement {
         },
       };
 
+      const { attribution: _volatileAttribution, ...stableBusinessPayload } = payload;
+      const fingerprint = JSON.stringify(stableBusinessPayload);
+      if (!this.pendingIdempotencyKey || this.pendingOrderFingerprint !== fingerprint) {
+        this.pendingIdempotencyKey = crypto.randomUUID();
+        this.pendingOrderFingerprint = fingerprint;
+        this.pendingOrderBody = JSON.stringify(payload);
+      }
       const res = await fetch(`${this.apiHost}/api/v1/public/orders`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": this.pendingIdempotencyKey,
+        },
+        body: this.pendingOrderBody,
       });
 
       if (!res.ok) {
@@ -459,15 +473,12 @@ export class DotAdsFormElement extends HTMLElement {
       }
 
       const orderData = await res.json();
-      const realOrderId = orderData.orderId || orderData.id;
-
-      // Trigger Meta Pixel Track with exact eventID deduplication
-      if (typeof window !== "undefined" && (window as any).fbq) {
-        (window as any).fbq("track", "Purchase", {
-          currency: "IDR",
-          value: orderData.totalMinor / 100,
-        }, { eventID: `purchase_${realOrderId}` });
+      if (res.status === 201 || res.status === 202) {
+        this.pendingIdempotencyKey = null;
+        this.pendingOrderBody = null;
+        this.pendingOrderFingerprint = null;
       }
+      const realOrderId = orderData.orderId || orderData.id;
 
       // Redirect to thank-you page with payment details
       const params = new URLSearchParams({
