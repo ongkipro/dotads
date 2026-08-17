@@ -18,6 +18,8 @@
     "smoke:catalog-products": "node --experimental-strip-types scripts/smoke-catalog-products.ts",
     "smoke:admin-members": "node --experimental-strip-types scripts/smoke-admin-members.ts",
     "smoke:admin-dashboard": "node --experimental-strip-types scripts/smoke-admin-dashboard.ts",
+    "smoke:admin-audit-logs": "node --experimental-strip-types scripts/smoke-admin-audit-logs.ts",
+    "smoke:admin-domains": "node --experimental-strip-types scripts/smoke-admin-domains.ts",
     "smoke:invitation-acceptance": "node --experimental-strip-types scripts/smoke-invitation-acceptance.ts",
     "smoke:compact-orders": "node --experimental-strip-types scripts/smoke-compact-orders.ts"
   },

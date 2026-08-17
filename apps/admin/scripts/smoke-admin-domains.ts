@@ -1,0 +1,13 @@
+import assert from "node:assert/strict";
+import { createTenantDomain, listTenantDomains, parseTenantDomain, parseTenantDomainPage } from "../src/lib/admin-domains.ts";
+const item = { id: "1a1a1a1a-1111-4111-8111-111111111111", hostname: "toko.example.id", isPrimary: false, status: "pending", verification: { record: { type: "TXT", name: "_dotads-challenge", value: "txt_value" }, automatedCheck: "unavailable" }, createdAt: "2026-08-17T01:00:00.000Z", updatedAt: "2026-08-17T01:00:00.000Z" } as const;
+assert.deepEqual(parseTenantDomain(item), item);
+assert.deepEqual(parseTenantDomainPage({ items: [item], pagination: { limit: 50, offset: 0, total: 1 } }).items, [item]);
+assert.throws(() => parseTenantDomain({ ...item, verification: { ...item.verification, ssl: true } }), /tidak valid/);
+assert.throws(() => parseTenantDomain({ ...item, verification: { ...item.verification, record: { ...item.verification.record, value: "x".repeat(256) } } }), /tidak valid/);
+assert.throws(() => parseTenantDomainPage({ items: [item], pagination: { limit: 101, offset: 0, total: 1 } }), /tidak valid/);
+assert.throws(() => parseTenantDomainPage({ items: [item], pagination: { limit: 50, offset: 10001, total: 1 } }), /tidak valid/);
+let listUrl = ""; await listTenantDomains(async (input) => { listUrl = String(input); return new Response(JSON.stringify({ items: [item], pagination: { limit: 50, offset: 0, total: 1 } }), { status: 200 }); }); assert.equal(listUrl, "/api/v1/admin/domains?limit=50&offset=0");
+let body = ""; await createTenantDomain("toko.example.id", async (_input, init) => { body = String(init?.body); return new Response(JSON.stringify(item), { status: 201 }); }); assert.deepEqual(JSON.parse(body), { hostname: "toko.example.id" });
+await assert.rejects(() => createTenantDomain("duplicate.id", async () => new Response("{}", { status: 409 })), /sudah terdaftar/);
+console.log("ADMIN DOMAINS CLIENT SMOKE PASSED");

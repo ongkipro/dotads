@@ -1,8 +1,8 @@
-import { getNavigationForRole, ROLE_NAVIGATION } from "../src/components/admin-navigation.ts";
+import { getNavigationForRole } from "../src/components/admin-navigation.ts";
 import assert from "node:assert";
 
 async function runAdminNavigationSmoke() {
-  console.log("Starting 6-Role Adaptive Admin Navigation Smoke Test...");
+  console.log("Starting focused merchant navigation smoke test...");
 
   // 1. Super Admin navigation assertion
   const superAdminNav = getNavigationForRole("SUPER_ADMIN");
@@ -11,21 +11,29 @@ async function runAdminNavigationSmoke() {
 
   // 2. Tenant Owner navigation assertion
   const ownerNav = getNavigationForRole("TENANT_OWNER");
-  assert.strictEqual(ownerNav.some((item) => item.href === "/admin/orders"), true);
-  assert.strictEqual(ownerNav.some((item) => item.href === "/admin/settings/members"), true);
+  assert.deepStrictEqual(ownerNav.map((item) => item.href), ["/admin", "/admin/orders", "/admin/products", "/admin/settings/members", "/admin/settings/domains", "/admin/settings/audit-logs"]);
+  assert.strictEqual(ownerNav.some((item) => item.href.includes("builders") || item.href.includes("integrations")), false);
+
+  const adminNav = getNavigationForRole("ADMIN");
+  assert.deepStrictEqual(adminNav.map((item) => item.href), ["/admin", "/admin/orders", "/admin/products", "/admin/settings/members", "/admin/settings/audit-logs"]);
 
   // 3. Advertiser navigation assertion
   const advertiserNav = getNavigationForRole("ADVERTISER");
-  assert.strictEqual(advertiserNav.some((item) => item.href === "/admin/builders/forms"), true);
-  assert.strictEqual(advertiserNav.some((item) => item.href === "/admin/settings/members"), false);
+  assert.deepStrictEqual(advertiserNav.map((item) => item.href), ["/admin/products"]);
 
   // 4. CS navigation assertion
   const csNav = getNavigationForRole("CUSTOMER_SERVICE");
-  assert.strictEqual(csNav.some((item) => item.href === "/admin/orders"), true);
-  assert.strictEqual(csNav.some((item) => item.href === "/admin/settings/members"), true);
-  assert.strictEqual(csNav.some((item) => item.href === "/admin/builders/forms"), false);
+  assert.deepStrictEqual(csNav.map((item) => item.href), ["/admin", "/admin/orders", "/admin/products"]);
+  assert.strictEqual(csNav.some((item) => item.href === "/admin/settings/audit-logs"), false);
+  assert.strictEqual(csNav.some((item) => item.href === "/admin/settings/members"), false);
 
-  console.log("6-ROLE ADAPTIVE ADMIN NAVIGATION SMOKE TEST PASSED!");
+  for (const role of ["TENANT_OWNER", "ADMIN", "ADVERTISER", "CUSTOMER_SERVICE"] as const) {
+    for (const item of getNavigationForRole(role)) {
+      assert.match(item.title, /^(Ringkasan|Pesanan|Produk|Anggota Tim|Domain Kustom|Log Aktivitas)$/);
+    }
+  }
+
+  console.log("FOCUSED MERCHANT NAVIGATION SMOKE TEST PASSED");
 }
 
 runAdminNavigationSmoke().catch((err: unknown) => {

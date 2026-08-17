@@ -29,8 +29,64 @@ DotAds Engine v2 is a multi-tenant direct-response commerce operating system for
 - **Customer Service** — order, shipping, WA/ongkir, and customer follow-up operator.
 - **End Buyer** — public shopper.
 
-## Information Architecture Baseline
-Tenant admin preserves DotAds Fisik grouping: Commerce, Operations, Growth, Finance & System, Profile. Super Admin owns a separate workspace. Mobile, tablet, and desktop are all first-class surfaces.
+## Merchant Workspace Product Contract
+
+### Operational frame
+
+- **Tenant Owner:** governs the store, monitors business health, resolves exceptions, configures providers, and manages access.
+- **Admin:** runs daily commerce operations and store configuration without owner-only billing, provider-secret, ownership, or domain-authority actions.
+- **Advertiser:** maintains products for campaign use, builds landing pages/forms, and operates ad measurement. It does not receive order, finance, member, or provider-secret access.
+- **Customer Service:** triages orders, validates shipment/customer information, and follows fulfilment progress. It receives read-only product context and no builder, finance, membership, or provider-secret access.
+
+The workspace SHALL be task-first rather than a flat list of features. Its target UI groups are **Ringkasan**, **Operasional**, **Konten & Iklan**, **Keuangan**, and **Pengaturan**. Super Admin remains a separate platform workspace. End Buyer never enters the CMS shell.
+
+### Target merchant menu
+
+| Group | Destination | Primary job | Visibility |
+| :--- | :--- | :--- | :--- |
+| Ringkasan | Ringkasan | Identify current priorities and enter the relevant work queue | Owner, Admin, Customer Service; Advertiser only after an advertiser-specific dashboard exists |
+| Operasional | Pesanan | Triage, inspect, transition, and dispatch orders | Owner, Admin, Customer Service |
+| Operasional | Produk | Maintain or inspect the sellable catalog | Owner/Admin edit; Advertiser/Customer Service read-only |
+| Operasional | Pengiriman | Check rates, dispatch eligibility, waybill, tracking, and shipment exceptions without exposing provider credentials | Owner, Admin, Customer Service |
+| Konten & Iklan | Landing Page | List, edit, preview, version, validate, and publish persisted landing pages | Owner, Admin, Advertiser |
+| Konten & Iklan | Form Pesanan | List, edit, preview, version, validate, and publish persisted order forms | Owner, Admin, Advertiser |
+| Konten & Iklan | Tracking Iklan | Configure authorized ad destinations and inspect real delivery diagnostics | Owner, Admin, Advertiser |
+| Keuangan | Rekonsiliasi | Review real payment, COD remittance, fees, discrepancies, and export parity | Owner; Admin only when a specific finance permission is accepted |
+| Pengaturan | Toko | Maintain tenant identity and operational defaults | Owner, Admin |
+| Pengaturan | Lokasi & Gudang | Maintain warehouses and shipment origins | Owner, Admin |
+| Pengaturan | Integrasi | Configure Mengantar and AutoLaris credentials/channels with secret-safe states | Owner only unless a narrower permission is accepted |
+| Pengaturan | Pesan WhatsApp | Maintain governed WhatsApp templates independently of rate lookup | Owner, Admin |
+| Pengaturan | Tim | Invite and govern members | Owner edit; Admin read-only |
+| Pengaturan | Domain | Maintain and verify tenant domains | Owner only unless domain authority is explicitly delegated |
+| Pengaturan | Log Aktivitas | Inspect real tenant audit evidence | Owner, Admin |
+
+Account profile, workspace switching, and sign-out belong in the account/workspace control, not in the primary merchant menu. Search SHALL appear only when it queries implemented tenant-scoped resources. A menu destination SHALL be hidden until its primary job is backed by a real authorized workflow; a route may instead expose an explicit unavailable state for direct bookmarks, but SHALL NOT simulate success.
+
+### Menu removals and consolidations
+
+- Remove **Profile Account** from the sidebar and place account actions in the authenticated account control.
+- Remove the non-functional global search affordance until tenant-scoped search exists.
+- Replace **Mengantar Expedition** in Customer Service navigation with credential-free **Shipments** operations.
+- Move **AutoLaris Settings** and Mengantar credentials out of daily operations into owner-only **Integrations** settings.
+- Split **Shipping Check & WhatsApp** into **Shipments** and **Messaging** because they are different jobs, permissions, states, and audit boundaries.
+- Keep synthetic/local-only reconciliation, tracking, builder, store, warehouse, messaging, domain, audit, integration, and profile demonstrations out of production navigation until their real persistence and failure states are implemented.
+
+### Role/action matrix
+
+| Capability | Tenant Owner | Admin | Advertiser | Customer Service |
+| :--- | :---: | :---: | :---: | :---: |
+| Operational dashboard | Manage | Manage | Hidden until role-specific | View operational subset |
+| Orders and dispatch | Manage | Manage | None | Manage bounded workflow |
+| Catalog | Manage | Manage | View | View |
+| Landing pages, forms, tracking | Manage | Manage | Manage | None |
+| Shipments | Manage | Manage | None | Manage without configuration secrets |
+| Reconciliation | Manage | None until granted | None | None |
+| Store, locations, messaging | Manage | Manage | None | None |
+| Provider integrations and domains | Manage | None until granted | None | None |
+| Team | Manage | View | None | None |
+| Activity log | View | View | None | None |
+
+Every screen SHALL cover applicable initial loading, retained-data refresh, true empty, no-filter-result, read-only, validation, server failure, conflict, pending mutation, success, and retry states. Menu visibility is not authorization; direct routes and every backing API action remain server-enforced and tenant-scoped.
 
 ## System, Auth, Tenancy, Domains
 - **REQ-SYS-001 — Establish the tenant-isolated PostgreSQL foundation** — **Status: Target.** When the relevant actor or runtime invokes this capability, the system SHALL establish the tenant-isolated PostgreSQL foundation.
@@ -60,6 +116,15 @@ Tenant admin preserves DotAds Fisik grouping: Commerce, Operations, Growth, Fina
 - **REQ-ADM-013 — Build tenant customer and lead management** — **Status: Target.** When the relevant actor or runtime invokes this capability, the system SHALL build tenant customer and lead management.
 - **REQ-ADM-014 — Implement tenant branding and operational settings UI** — **Status: Target.** When the relevant actor or runtime invokes this capability, the system SHALL implement tenant branding and operational settings UI.
 - **REQ-ADM-015 — Build team and role management** — **Status: Target.** When the relevant actor or runtime invokes this capability, the system SHALL build team and role management.
+- **REQ-ADM-016 — Provide task-first capability-backed merchant navigation** — **Status: Target.** When a tenant actor enters the CMS, the system SHALL show only the target merchant menu destinations authorized for that role and backed by an honest workflow, while direct routes remain server-authorized. Acceptance requires a generated route/menu/capability inventory with no dead links, orphan operational routes, Customer Service access to provider credentials, or role-visible action rejected by its backing permission contract.
+- **REQ-ADM-017 — Provide role-specific operational dashboards** — **Status: Target.** When an authorized tenant actor opens their workspace landing page, the system SHALL present persisted, WIB-bounded priorities and deep links appropriate to that actor's job without fabricated KPIs or actions. Acceptance requires owner, admin, advertiser, and customer-service browser cases to render only supported data/actions or redirect to an implemented role landing page.
+- **REQ-ADM-018 — Provide a recoverable merchant sign-in entry** — **Status: Target.** When a merchant submits valid credentials, the system SHALL establish the server session and route the actor to workspace selection or the authorized role landing page; invalid, stale, suspended, multi-workspace, invitation-return, and sign-out states SHALL preserve a clear recovery path without revealing account existence. Acceptance requires browser coverage for success, invalid credentials, pending submission, workspace selection, safe invitation return, suspended tenant denial, stale session recovery, and sign-out.
+- **REQ-ADM-019 — Eliminate simulated merchant workflow success** — **Status: Target.** If a merchant surface lacks a persisted authorized operation, then the system SHALL hide its navigation entry or present an explicit unavailable/read-only state and SHALL NOT display seeded secrets, sample business records as live data, synthetic provider results, or local-only save success. Acceptance requires a repository and browser inventory proving every visible mutation persists after reload or fails honestly while preserving recoverable input.
+- **REQ-ADM-020 — Separate account utilities from business navigation** — **Status: Target.** When an authenticated merchant uses account utilities, the system SHALL expose real workspace switching, profile/security operations, and sign-out from one account control, while global search SHALL remain absent until it returns authorized tenant-scoped results. Acceptance requires keyboard and browser tests for the account control and either a real bounded search contract or absence of the search affordance.
+- **REQ-ADM-021 — Deliver accessible responsive merchant workflows** — **Status: Target.** While the CMS is rendered at desktop, tablet, or mobile widths, the system SHALL preserve current location, reachable role-authorized navigation, readable dense data, visible focus, labelled controls, mutation feedback, and no horizontal page overflow. Acceptance requires browser validation for every tenant role at representative 1280, 768, and 390 pixel widths, including keyboard navigation and forced empty/error/read-only states.
+- **REQ-ADM-022 — Separate daily fulfilment from provider configuration** — **Status: Target.** When a Customer Service or operations actor handles a shipment, the system SHALL expose credential-free rate, eligibility, dispatch, waybill, tracking, exception, and retry information, while provider secrets/channels SHALL remain in owner-authorized Integrations settings. Acceptance requires route/API tests proving operational roles cannot read or mutate provider secrets and can complete only their bounded shipment actions.
+- **REQ-ADM-023 — Consolidate merchant settings by governed object** — **Status: Target.** When an authorized merchant manages Store, Locations, Integrations, Messaging, Team, Domains, or Activity Log, the system SHALL provide one persisted tenant-scoped source per governed object with permission-aware actions, destructive confirmation, audit evidence, and honest unavailable states. Acceptance requires same-tenant persistence/reload, cross-tenant denial, read-only role behavior, validation/conflict recovery, and audit assertions for every settings destination.
+- **REQ-ADM-024 — Use unambiguous Indonesian merchant UI language** — **Status: Target.** When the merchant CMS presents navigation, headings, actions, states, validation, or recovery guidance, the system SHALL use Bahasa Indonesia (Indonesia, not Malay) with deliberate hybrid English only for widely understood technical/product terms that become less clear when translated, while preserving code identifiers, API fields, provider names, and status enums exactly. Acceptance requires a terminology scan and role/device browser review to find no Malay wording, ambiguous generic action labels, inconsistent synonyms for the same object/state, or translated technical identifiers.
 
 ## Builder Requirements
 - **REQ-BLD-001 — Build the form drag-and-drop editor** — **Status: Target.** When the relevant actor or runtime invokes this capability, the system SHALL build the form drag-and-drop editor.

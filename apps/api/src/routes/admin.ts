@@ -1,6 +1,6 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { db, schema } from "@dotads/db";
-import { eq, and, desc, lte, gte, count, or, sql, isNull, inArray, type SQL } from "drizzle-orm";
+import { eq, and, asc, desc, lte, gte, count, or, sql, isNull, inArray, type SQL } from "drizzle-orm";
 import { authMiddleware, type AppEnv, type AuthContext } from "../middleware/auth.ts";
 import { hasPermission } from "@dotads/auth";
 import {
@@ -36,7 +36,7 @@ export function requiredAdminPermission(method: string, path: string): string | 
 
   if (method === "GET" && routePath === "/members") return "members:read";
   if (method === "POST" && routePath === "/members/invite") return "members:create";
-  if (method === "GET" && routePath === "/domains") return "tenant:read";
+  if (method === "GET" && routePath === "/domains") return "tenant:update";
   if (method === "POST" && routePath === "/domains") return "tenant:update";
   if (method === "GET" && routePath === "/audit-logs") return "tenant:read";
   if (method === "GET" && /^\/forms(?:\/[^/]+\/versions)?$/.test(routePath)) return "builders:read";
@@ -151,26 +151,118 @@ adminRouter.openapi(
   }
 );
 
-// Domains endpoints
+const TENANT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const DomainStatusSchema = z.enum(["pending", "verified", "failed"]);
+const DomainVerificationSchema = z.object({
+  record: z.object({
+    type: z.literal("TXT"),
+    name: z.literal("_dotads-challenge"),
+    value: z.string().min(1).max(255),
+  }).strict(),
+  automatedCheck: z.literal("unavailable"),
+}).strict();
+const DomainItemSchema = z.object({
+  id: z.string().uuid(),
+  hostname: z.string().min(3).max(253),
+  isPrimary: z.boolean(),
+  status: DomainStatusSchema,
+  verification: DomainVerificationSchema.nullable(),
+  createdAt: z.string().datetime({ offset: true }),
+  updatedAt: z.string().datetime({ offset: true }),
+}).strict();
+const DomainPageSchema = z.object({
+  items: z.array(DomainItemSchema).max(100),
+  pagination: z.object({
+    limit: z.number().int().min(1).max(100),
+    offset: z.number().int().min(0).max(10_000),
+    total: z.number().int().safe().nonnegative(),
+  }).strict(),
+}).strict();
+const DomainErrorSchema = z.object({ error: z.string() }).strict();
+const DomainWorkspaceSelectionErrorSchema = z.object({
+  error: z.literal("Workspace selection required"),
+  code: z.literal("WORKSPACE_SELECTION_REQUIRED"),
+  workspaceSelectionRequired: z.literal(true),
+}).strict();
+const DomainQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).max(10_000).default(0),
+}).strict();
+const DomainHostnameInputSchema = z.string().trim().min(3).max(254)
+  .regex(/^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}\.?$/);
+
+function normalizeDomainHostname(hostname: string): string {
+  return hostname.trim().toLowerCase().replace(/\.$/, "");
+}
+
+function serializeDomain(domain: typeof schema.tenantDomains.$inferSelect) {
+  const status = domain.status === "verified" || domain.status === "failed" ? domain.status : "pending";
+  return DomainItemSchema.parse({
+    id: domain.id,
+    hostname: domain.hostname,
+    isPrimary: domain.isPrimary,
+    status,
+    verification: status === "verified" ? null : {
+      record: { type: "TXT", name: "_dotads-challenge", value: domain.verificationToken },
+      automatedCheck: "unavailable",
+    },
+    createdAt: isoInstant(domain.createdAt),
+    updatedAt: isoInstant(domain.updatedAt),
+  });
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  let current = error;
+  for (let depth = 0; depth < 4 && typeof current === "object" && current !== null; depth++) {
+    if ("code" in current && current.code === "23505") return true;
+    current = "cause" in current ? current.cause : undefined;
+  }
+  return false;
+}
+
+// Domain governance is intentionally limited to registration and manual DNS instructions.
 adminRouter.openapi(
   createRoute({
     method: "get",
     path: "/domains",
-    summary: "List custom domains",
+    operationId: "listTenantDomains",
+    tags: ["Tenant domains"],
+    summary: "List registered tenant domains",
+    request: { query: DomainQuerySchema },
     responses: {
       200: {
-        description: "List of custom domains",
-        content: { "application/json": { schema: z.array(z.any()) } },
+        description: "Registered tenant domains",
+        content: { "application/json": { schema: DomainPageSchema } },
       },
+      400: { description: "Invalid domain query", content: { "application/json": { schema: DomainErrorSchema } } },
+      401: { description: "Unauthenticated", content: { "application/json": { schema: DomainErrorSchema } } },
+      403: { description: "Forbidden", content: { "application/json": { schema: DomainErrorSchema } } },
+      409: { description: "Workspace selection required", content: { "application/json": { schema: DomainWorkspaceSelectionErrorSchema } } },
+      500: { description: "Internal server error", content: { "application/json": { schema: DomainErrorSchema } } },
     },
   }),
   async (c) => {
     const auth = c.get("auth");
-    const domains = await db
-      .select()
-      .from(schema.tenantDomains)
-      .where(eq(schema.tenantDomains.tenantId, auth.tenantId));
-    return c.json(domains, 200);
+    if (auth.role !== "TENANT_OWNER" || !TENANT_ID_PATTERN.test(auth.tenantId)) {
+      return c.json({ error: "Forbidden: Tenant owner context required" }, 403);
+    }
+    const query = c.req.valid("query");
+    const result = await db.transaction(async (tx) => {
+      const items = await tx.select().from(schema.tenantDomains)
+        .where(eq(schema.tenantDomains.tenantId, auth.tenantId))
+        .orderBy(asc(schema.tenantDomains.hostname), asc(schema.tenantDomains.id))
+        .limit(query.limit).offset(query.offset);
+      const [aggregate] = await tx.select({ total: count(schema.tenantDomains.id) })
+        .from(schema.tenantDomains).where(eq(schema.tenantDomains.tenantId, auth.tenantId));
+      return { items, total: Number(aggregate?.total ?? 0) };
+    });
+    return c.json(DomainPageSchema.parse({
+      items: result.items.map(serializeDomain),
+      pagination: { limit: query.limit, offset: query.offset, total: result.total },
+    }), 200);
+  },
+  (result, c) => {
+    if (!result.success) return c.json({ error: "Invalid domain query" }, 400);
   }
 );
 
@@ -178,78 +270,185 @@ adminRouter.openapi(
   createRoute({
     method: "post",
     path: "/domains",
-    summary: "Add custom domain",
+    operationId: "createTenantDomain",
+    tags: ["Tenant domains"],
+    summary: "Register a tenant domain for manual DNS verification",
     request: {
       body: {
         content: {
           "application/json": {
-            schema: z.object({
-              hostname: z
-                .string()
-                .trim()
-                .min(3)
-                .max(253)
-                .regex(/^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$/),
-            }),
+            schema: z.object({ hostname: DomainHostnameInputSchema }).strict(),
           },
         },
       },
     },
     responses: {
       201: {
-        description: "Domain added",
-        content: { "application/json": { schema: z.any() } },
+        description: "Domain registered with manual TXT instructions",
+        content: { "application/json": { schema: DomainItemSchema } },
       },
-      403: {
-        description: "Forbidden",
-        content: { "application/json": { schema: z.object({ error: z.string() }) } },
-      },
+      400: { description: "Invalid domain registration", content: { "application/json": { schema: DomainErrorSchema } } },
+      401: { description: "Unauthenticated", content: { "application/json": { schema: DomainErrorSchema } } },
+      403: { description: "Forbidden", content: { "application/json": { schema: DomainErrorSchema } } },
+      409: { description: "Domain already registered or workspace selection required", content: { "application/json": { schema: z.union([DomainErrorSchema, DomainWorkspaceSelectionErrorSchema]) } } },
+      500: { description: "Internal server error", content: { "application/json": { schema: DomainErrorSchema } } },
     },
   }),
   async (c) => {
     const auth = c.get("auth");
+    if (auth.role !== "TENANT_OWNER" || !TENANT_ID_PATTERN.test(auth.tenantId)) {
+      return c.json({ error: "Forbidden: Tenant owner context required" }, 403);
+    }
     const body = c.req.valid("json");
+    const hostname = normalizeDomainHostname(body.hostname);
 
-    const domain = await db.transaction(async (tx) => {
-      const [created] = await tx
-        .insert(schema.tenantDomains)
-        .values({
-          tenantId: auth.tenantId,
-          hostname: body.hostname.toLowerCase().trim(),
-          verificationToken: `txt_${crypto.randomUUID().replaceAll("-", "")}`,
-          status: "pending",
-        })
-        .returning();
-      await tx.insert(schema.auditLogs).values(
-        auditEntry(auth, "domain.create", "tenant_domain", created.id, { hostname: created.hostname })
-      );
-      return created;
-    });
+    try {
+      const domain = await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(schema.tenantDomains)
+          .values({
+            tenantId: auth.tenantId,
+            hostname,
+            verificationToken: `txt_${crypto.randomUUID().replaceAll("-", "")}`,
+            status: "pending",
+          })
+          .returning();
+        await tx.insert(schema.auditLogs).values(
+          auditEntry(auth, "domain.create", "tenant_domain", created.id, { hostname: created.hostname })
+        );
+        return created;
+      });
 
-    return c.json(domain, 201);
+      return c.json(serializeDomain(domain), 201);
+    } catch (error) {
+      if (isUniqueViolation(error)) return c.json({ error: "Domain is already registered" }, 409);
+      throw error;
+    }
+  },
+  (result, c) => {
+    if (!result.success) return c.json({ error: "Invalid domain registration" }, 400);
   }
 );
 
-// Audit logs endpoint
+const AuditLogQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+  offset: z.coerce.number().int().min(0).max(10_000).default(0),
+  q: z.string().trim().min(1).max(100).optional(),
+  action: z.string().trim().min(1).max(100).optional(),
+  days: z.enum(["7", "30"]).optional(),
+}).strict();
+const AuditLogItemSchema = z.object({
+  id: z.string().uuid(),
+  action: z.string().min(1).max(100),
+  actor: z.object({
+    email: z.string().email().max(255),
+    role: z.string().min(1).max(50),
+  }).strict(),
+  target: z.object({
+    type: z.string().min(1).max(50),
+    id: z.string().min(1).max(500),
+  }).strict(),
+  createdAt: z.string().datetime({ offset: true }),
+}).strict();
+const AuditLogPageSchema = z.object({
+  items: z.array(AuditLogItemSchema).max(100),
+  pagination: z.object({
+    limit: z.number().int().min(1).max(100),
+    offset: z.number().int().min(0).max(10_000),
+    total: z.number().int().safe().nonnegative(),
+  }).strict(),
+  filters: z.object({
+    actions: z.array(z.string().min(1).max(100)).max(100),
+  }).strict(),
+}).strict();
+const AdminErrorSchema = z.object({ error: z.string() }).strict();
+const AdminWorkspaceSelectionErrorSchema = z.object({
+  error: z.literal("Workspace selection required"),
+  code: z.literal("WORKSPACE_SELECTION_REQUIRED"),
+  workspaceSelectionRequired: z.literal(true),
+}).strict();
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, "\\$&");
+}
+
+// Tenant audit history is read-only, bounded, and omits arbitrary metadata and request fingerprints.
 adminRouter.openapi(
   createRoute({
     method: "get",
     path: "/audit-logs",
-    summary: "Get audit logs",
+    operationId: "listTenantAuditLogs",
+    tags: ["Tenant audit"],
+    summary: "List bounded tenant audit history",
+    request: { query: AuditLogQuerySchema },
     responses: {
       200: {
-        description: "Audit log history",
-        content: { "application/json": { schema: z.array(z.any()) } },
+        description: "Newest tenant audit events",
+        content: { "application/json": { schema: AuditLogPageSchema } },
       },
+      400: { description: "Invalid audit query", content: { "application/json": { schema: AdminErrorSchema } } },
+      401: { description: "Unauthenticated", content: { "application/json": { schema: AdminErrorSchema } } },
+      403: { description: "Forbidden", content: { "application/json": { schema: AdminErrorSchema } } },
+      409: { description: "Workspace selection required", content: { "application/json": { schema: AdminWorkspaceSelectionErrorSchema } } },
+      500: { description: "Internal server error", content: { "application/json": { schema: AdminErrorSchema } } },
     },
   }),
   async (c) => {
     const auth = c.get("auth");
-    const logs = await db
-      .select()
-      .from(schema.auditLogs)
-      .where(eq(schema.auditLogs.tenantId, auth.tenantId));
-    return c.json(logs, 200);
+    if (auth.role === "SUPER_ADMIN" || !TENANT_ID_PATTERN.test(auth.tenantId)) {
+      return c.json({ error: "Forbidden: Active tenant context required" }, 403);
+    }
+    const query = c.req.valid("query");
+    const filters: SQL[] = [eq(schema.auditLogs.tenantId, auth.tenantId)];
+    if (query.action) filters.push(eq(schema.auditLogs.action, query.action));
+    if (query.days) {
+      filters.push(gte(schema.auditLogs.createdAt, new Date(Date.now() - Number(query.days) * 86_400_000).toISOString()));
+    }
+    if (query.q) {
+      const pattern = `%${escapeLikePattern(query.q)}%`;
+      filters.push(or(
+        sql`${schema.auditLogs.action} ILIKE ${pattern} ESCAPE '\\'`,
+        sql`${schema.auditLogs.actorEmail} ILIKE ${pattern} ESCAPE '\\'`,
+        sql`${schema.auditLogs.targetType} ILIKE ${pattern} ESCAPE '\\'`,
+        sql`${schema.auditLogs.targetId} ILIKE ${pattern} ESCAPE '\\'`
+      )!);
+    }
+    const where = and(...filters);
+    const result = await db.transaction(async (tx) => {
+      const items = await tx.select({
+        id: schema.auditLogs.id,
+        action: schema.auditLogs.action,
+        actorEmail: schema.auditLogs.actorEmail,
+        actorRole: schema.auditLogs.actorRole,
+        targetType: schema.auditLogs.targetType,
+        targetId: schema.auditLogs.targetId,
+        createdAt: schema.auditLogs.createdAt,
+      }).from(schema.auditLogs).where(where)
+        .orderBy(desc(schema.auditLogs.createdAt), desc(schema.auditLogs.id))
+        .limit(query.limit).offset(query.offset);
+      const [aggregate] = await tx.select({ total: count(schema.auditLogs.id) })
+        .from(schema.auditLogs).where(where);
+      const actions = await tx.selectDistinct({ action: schema.auditLogs.action })
+        .from(schema.auditLogs)
+        .where(eq(schema.auditLogs.tenantId, auth.tenantId))
+        .orderBy(asc(schema.auditLogs.action))
+        .limit(100);
+      return { items, total: Number(aggregate?.total ?? 0), actions };
+    });
+
+    return c.json(AuditLogPageSchema.parse({
+      items: result.items.map((item) => ({
+        id: item.id,
+        action: item.action,
+        actor: { email: item.actorEmail, role: item.actorRole },
+        target: { type: item.targetType, id: item.targetId },
+        createdAt: isoInstant(item.createdAt),
+      })),
+      pagination: { limit: query.limit, offset: query.offset, total: result.total },
+      filters: { actions: result.actions.map((item) => item.action) },
+    }), 200);
+  },
+  (result, c) => {
+    if (!result.success) return c.json({ error: "Invalid audit query" }, 400);
   }
 );
 

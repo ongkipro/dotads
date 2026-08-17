@@ -155,6 +155,108 @@ Task IDs are permanent. A checked box means the stated evidence is present; it i
   - Provide full desktop sidebar, tablet rail, and mobile drawer with current-location indication and accessible keyboard/focus behavior.
   - **Done when:** browser validation passes representative desktop, tablet portrait/landscape, and mobile widths for every role shell.
 
+## P1 — Merchant Workspace UX and Menu Completion
+
+- [x] **T-1031: Replace the merchant menu with the task-first capability map.**
+  - **Primary requirement:** REQ-ADM-016
+  - **Constraints:** REQ-SYS-004, REQ-ADM-019, REQ-ADM-022, REQ-ADM-024
+  - **Dependencies:** T-1023
+  - Define one typed menu/capability source for Ringkasan, Operasional, Konten & Iklan, Keuangan, and Pengaturan; remove END_BUYER, profile, non-functional search, and unauthorized/synthetic destinations from each tenant role.
+  - **Done when:** run the admin navigation and direct-route inventory tests; they enumerate every merchant page and prove no dead link, orphan operational route, prefix-boundary bypass, Customer Service provider-configuration route, or menu/API permission contradiction.
+  - **Evidence:** the focused navigation smoke and six-role direct-route smoke passed on 2026-08-17. The visible merchant map is deliberately limited to real destinations: Owner sees Ringkasan, Pesanan, Produk, Anggota Tim, Domain Kustom, and Log Aktivitas; Admin omits Domain Kustom; Advertiser lands on Produk; Customer Service sees Ringkasan, Pesanan, and Produk. Profile, global search, builders, provider configuration, reconciliation, tracking, and other simulated destinations are absent from navigation and denied by the tenant server guard.
+
+- [ ] **T-1032: Complete merchant login and workspace-entry recovery.**
+  - **Primary requirement:** REQ-ADM-018
+  - **Constraints:** REQ-SYS-005, REQ-SYS-010, REQ-ADM-024
+  - **Dependencies:** T-1004
+  - Keep production authentication email-based, development aliases non-production-only, safe invitation return paths, multi-workspace selection, suspended-tenant denial, generic invalid-credential copy, pending-submit prevention, stale-session recovery, and sign-out.
+  - **Done when:** execute the login browser matrix at 1280, 768, and 390 pixels; valid single/multiple-workspace, invalid credential, invitation return, suspended tenant, stale cookie, retry, and sign-out cases satisfy REQ-ADM-018 without console/runtime errors or account-enumeration copy.
+  - **Partial evidence:** the login now uses generic invalid-credential/rate-limit copy, prevents duplicate submission, preserves safe invitation return handling, and explains workspace selection without exposing backend errors. Earlier browser evidence covers multi-workspace selection, stale-cookie recovery, and sign-out, but the complete current 1280/768/390 single/multiple-workspace, invitation, suspended, invalid, retry, and sign-out matrix has not run on one revision.
+
+- [ ] **T-1033: Make each tenant role land on an actionable real-data view.**
+  - **Primary requirement:** REQ-ADM-017
+  - **Constraints:** REQ-ADM-003, REQ-SYS-009, REQ-SYS-004
+  - **Dependencies:** T-1031
+  - Keep owner/admin/customer-service dashboards scoped to their permitted operational priorities; redirect Advertiser to Products until a persisted advertiser-specific dashboard exists. Every KPI and shortcut must resolve to a real authorized queue.
+  - **Done when:** execute the seeded role dashboard/browser procedure and assert exact API requests, WIB period labels, persisted totals, authorized deep links, advertiser landing behavior, empty/error recovery, and absence of fabricated KPIs/actions.
+  - **Partial evidence:** the dashboard uses the real Dashboard and Orders clients, labels WIB explicitly, retains only real Pesanan and Produk task links, and the static role guard redirects Advertiser to Produk. Owner Chrome at 1280/768/390 rendered persisted data without runtime, network, console, or overflow errors. Seeded Admin, Advertiser, and Customer Service browser cases plus forced empty/error recovery remain unverified.
+
+- [ ] **T-1034: Quarantine simulated merchant pages and secrets.**
+  - **Primary requirement:** REQ-ADM-019
+  - **Constraints:** REQ-SYS-009, REQ-ADM-016, REQ-ADM-024
+  - **Dependencies:** T-1031
+  - Inventory builders, tracking, reconciliation, shipping/WhatsApp, store, warehouse, domains, audit, integrations, and profile; remove seeded credentials/sample records and hide each menu entry until its real primary workflow exists, while direct bookmarks receive a clear unavailable/read-only state.
+  - **Done when:** run the synthetic-content scan plus browser route inventory; no production-renderable route exposes seeded secrets, sample records presented as live, local-only save success, synthetic provider outcomes, or navigation to an unavailable primary job.
+  - **Partial evidence:** all inspected synthetic destinations are removed from role navigation and denied by the shared server route guard, while Domain Kustom and Log Aktivitas were promoted only after receiving real tenant APIs. Synthetic builder/tracking/reconciliation/provider page implementations still exist behind the guard, and a complete synthetic-content scan plus direct-bookmark browser inventory has not been recorded, so quarantine is not closed broadly.
+
+- [ ] **T-1035: Move real account utilities out of the business menu.**
+  - **Primary requirement:** REQ-ADM-020
+  - **Constraints:** REQ-SYS-010, REQ-ADM-018, REQ-ADM-021
+  - **Dependencies:** T-1031, T-1032
+  - Provide one session-derived account/workspace control for workspace switching, implemented profile/security operations, and sign-out; omit global search until a tenant-scoped API contract exists.
+  - **Done when:** keyboard/browser tests prove the control opens and closes predictably, identifies the active workspace/role, completes switch/sign-out, handles failure without trapping focus, and either returns authorized search results or renders no search affordance.
+
+- [ ] **T-1036: Separate shipment operations from provider configuration.**
+  - **Primary requirement:** REQ-ADM-022
+  - **Constraints:** REQ-ORD-005, REQ-ORD-006, REQ-ORD-007, REQ-SYS-004
+  - **Dependencies:** T-1012, T-1016, T-1031
+  - Build a credential-free Pengiriman queue/detail for rates, COD eligibility, dispatch, waybill, tracking, exception, and retry; keep Mengantar/AutoLaris credentials in owner-only Integrasi settings.
+  - **Done when:** execute HTTP authorization and browser role tests proving Customer Service can complete its bounded shipment path, cannot read/mutate provider configuration, and sees persisted pending/success/failure/conflict/retry states without a synthetic waybill.
+
+- [ ] **T-1037: Persist every governed merchant settings destination.**
+  - **Primary requirement:** REQ-ADM-023
+  - **Constraints:** REQ-ADM-014, REQ-ADM-015, REQ-SYS-006, REQ-SYS-008, REQ-SYS-009
+  - **Dependencies:** T-1002, T-1008, T-1011, T-1034
+  - Implement tenant-scoped Toko, Lokasi & Gudang, Integrasi, Pesan WhatsApp, Tim, Domain, and Log Aktivitas sources with role-specific read/write behavior, validation, conflict handling, destructive confirmation, and audit evidence.
+  - **Done when:** execute each settings destination's clean-database HTTP and browser test; same-tenant changes persist after reload, cross-tenant access fails, read-only roles cannot mutate, forced validation/conflict/server failures preserve input, and sensitive mutations create actor-correct audit rows.
+  - **Partial evidence:** Log Aktivitas now reads a bounded, redacted, tenant-scoped persisted audit feed for Owner/Admin, and Domain Kustom provides an Owner-only persisted list/create slice with normalized hostnames, duplicate rejection, transactional audit creation, and honest manual TXT instructions. Cross-tenant and role denials pass locally, and Owner browser coverage exists. Toko, Lokasi & Gudang, Integrasi, Pesan WhatsApp, the complete Tim lifecycle, automated DNS verification, SSL, primary-domain mutation, deletion, and forced browser failure states remain open.
+
+- [ ] **T-1038: Validate the complete merchant workspace responsively and accessibly.**
+  - **Primary requirement:** REQ-ADM-021
+  - **Constraints:** REQ-ADM-016, REQ-ADM-018, REQ-ADM-024
+  - **Dependencies:** T-1031, T-1032, T-1033, T-1035
+  - Cover desktop sidebar, tablet navigation, mobile navigation, dense list/detail screens, dialogs, account control, current-location state, focus return, keyboard operation, reduced motion, and horizontal overflow.
+  - **Done when:** execute the four-role browser matrix at 1280, 768, and 390 pixels with keyboard-only navigation and forced loading, empty, read-only, validation, conflict, server-error, and pending states; the observed evidence satisfies REQ-ADM-021.
+  - **Partial evidence:** Owner Chrome at 1280/768/390 covered login, workspace entry, dashboard, Log Aktivitas, and Domain Kustom with no reported overflow, runtime, network, or console errors. The domain dialog passed autofocus, Escape dismissal, and focus return. Admin, Advertiser, and Customer Service browser fixtures, complete keyboard/reduced-motion checks, and forced loading/empty/read-only/validation/conflict/server-error/pending states remain unverified.
+
+- [ ] **T-1039: Standardize merchant UI terminology in Indonesian.**
+  - **Primary requirement:** REQ-ADM-024
+  - **Constraints:** REQ-ADM-016, REQ-ADM-018, REQ-ADM-021
+  - **Dependencies:** T-1031
+  - Create one reviewed merchant terminology map in the existing design-system owner, then align navigation, headings, object names, outcome-based actions, status explanations, validation, and recovery copy. Preserve API/code identifiers, provider names, and stored enums.
+  - **Done when:** execute the repository terminology scan and four-role/device browser review; there is no Malay wording, ambiguous generic action label, inconsistent synonym for the same object/state, or translated technical identifier, and every deliberate English term has a clarity rationale in the canonical terminology map.
+  - **Partial evidence:** the exposed login, workspace controls, dashboard, menu, Domain Kustom, and Log Aktivitas copy was normalized to Indonesian terms such as ruang kerja, toko aktif, anggota tim, and layanan pelanggan while preserving technical identifiers. A canonical reviewed terminology map, automated repository scan, and complete four-role/device language review do not yet exist.
+
+- [ ] **T-1040: Connect Landing Page management to persisted list-edit-version-publish workflows.**
+  - **Primary requirement:** REQ-BLD-008
+  - **Constraints:** REQ-BLD-010, REQ-BLD-012, REQ-BLD-013, REQ-BLD-014, REQ-BLD-015, REQ-ADM-019
+  - **Dependencies:** T-1034
+  - Replace the local-only editor state with an authenticated tenant list/detail flow, explicit draft/version/publish lifecycle, validation, preview device modes, unsaved-change protection, and recoverable conflicts.
+  - **Done when:** execute the Landing Page HTTP and browser procedure; create/edit/version/publish persists after reload, another tenant is denied, invalid publish is rejected, stale edits retain input, and desktop/tablet/mobile previews render the selected persisted version.
+  - **Blocker:** the current API exposes incomplete list/create/version primitives but no strict detail/update contract, atomic publish transition, immutable complete version snapshot, or public published-page resolution. The current UI remains a local-only canvas without API-backed lifecycle, conflict recovery, or persisted device preview. Keep the destination quarantined.
+
+- [ ] **T-1041: Connect Order Form management to persisted list-edit-version-publish workflows.**
+  - **Primary requirement:** REQ-BLD-001
+  - **Constraints:** REQ-BLD-002, REQ-BLD-003, REQ-BLD-004, REQ-BLD-005, REQ-BLD-006, REQ-ADM-019
+  - **Dependencies:** T-1034
+  - Replace the seeded/local-only form editor with an authenticated tenant list/detail workflow for the four canonical presets, schema validation, versioning, preview, publish, embed configuration, unsaved-change protection, and conflict recovery.
+  - **Done when:** execute the Form HTTP and browser procedure; each canonical preset can be persisted/versioned/published and reloaded, invalid schema/publish and stale edit cases fail safely without losing input, cross-tenant access is denied, and the embed uses the selected published version.
+  - **Blocker:** the current API lacks strict bounded builder schema validation, detail/update and concurrency semantics, an atomic selected-version publish contract, and a reliable public embed contract; the inspected public form path is hard-coded rather than selected from the tenant's published version. The current UI is seeded/local-only. Keep the destination quarantined.
+
+- [ ] **T-1042: Replace tracking simulation with configuration and delivery diagnostics.**
+  - **Primary requirement:** REQ-TRK-010
+  - **Constraints:** REQ-TRK-001, REQ-TRK-002, REQ-TRK-006, REQ-SYS-008, REQ-ADM-019
+  - **Dependencies:** T-1018, T-1019, T-1034
+  - Provide secret-safe destination configuration plus real outbox delivery status, deduplication identity, redacted failure detail, retry/DLQ state, and permission-aware actions; remove simulated event generation and sample logs.
+  - **Done when:** execute non-live adapter/HTTP and browser diagnostics tests proving real persisted configured/unconfigured, success, retry, permanent failure, replay, and read-only states without displaying raw tokens or fabricated delivery.
+
+- [ ] **T-1043: Replace local reconciliation rows with authoritative settlement views.**
+  - **Primary requirement:** REQ-PAY-010
+  - **Constraints:** REQ-PAY-005, REQ-ORD-009, REQ-ADM-019
+  - **Dependencies:** T-1020, T-1034
+  - Back reconciliation, dispute, and CSV export with tenant-scoped payment/COD remittance records using integer-rupiah and WIB semantics; keep the menu owner-only until an explicit Admin finance permission is accepted.
+  - **Done when:** execute clean-database HTTP and browser tests proving totals/export parity, persisted dispute lifecycle, duplicate/out-of-order reconciliation safety, cross-tenant denial, read-only/empty/error states, and no sample settlement rows.
+
 ## P1 — Verification and Release Evidence
 
 - [x] **T-1025: Run the current RBAC smoke.**

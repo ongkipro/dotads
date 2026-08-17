@@ -24,7 +24,7 @@ import { isInvitationId } from "@/lib/invitation-acceptance";
 
 const roleLabels: Record<MemberRole, string> = {
   TENANT_OWNER: "Pemilik Toko",
-  ADMIN: "Administrator",
+  ADMIN: "Admin Toko",
   ADVERTISER: "Pengelola Iklan",
   CUSTOMER_SERVICE: "Layanan Pelanggan",
 };
@@ -128,7 +128,7 @@ export default function AdminMembersPage() {
     event.preventDefault();
     const email = inviteEmail.trim().toLowerCase();
     const saved = await mutate("invite", () => inviteAdminMember({ email, role: inviteRole }),
-      "Catatan undangan disimpan. Email belum dikirim; salin tautan penerimaan dan bagikan manual hanya kepada pemilik email undangan.");
+      "Catatan undangan disimpan. Email belum dikirim; salin tautan penerimaan dan bagikan secara manual hanya kepada pemilik alamat email yang diundang.");
     if (!saved) return;
     setInviteEmail("");
     setInviteRole("ADMIN");

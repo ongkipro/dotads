@@ -1,105 +1,67 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { CalendarDays, ChevronRight, FileText, Search, ShieldAlert, User, X } from "lucide-react";
+import { FormEvent, useEffect, useState } from "react";
+import { AlertCircle, CalendarDays, ChevronLeft, ChevronRight, FileText, RefreshCw, Search, ShieldCheck, User } from "lucide-react";
+import { listTenantAuditLogs, type TenantAuditLog, type TenantAuditLogPage } from "@/lib/admin-audit-logs";
 
-type AuditAction = "TENANT_PROVISIONED" | "FORM_SCHEMA_PUBLISHED" | "DOMAIN_ADD_ATTEMPT" | "MENGANTAR_DISPATCH" | "MEMBER_INVITED";
-
-interface AuditLogRow {
-  id: string;
-  action: AuditAction;
-  actorEmail: string;
-  ipAddress: string;
-  details: string;
-  createdAt: string;
-}
-
-const actionLabels: Record<AuditAction, string> = {
-  TENANT_PROVISIONED: "Toko dibuat",
-  FORM_SCHEMA_PUBLISHED: "Formulir diterbitkan",
-  DOMAIN_ADD_ATTEMPT: "Domain ditambahkan",
-  MENGANTAR_DISPATCH: "Paket dikirim",
-  MEMBER_INVITED: "Anggota diundang",
+const LIMIT = 25;
+const WIB = new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" });
+const ACTION_LABELS: Record<string, string> = {
+  "catalog.product_created": "Produk dibuat", "catalog.product_updated": "Produk diperbarui", "catalog.product_archived": "Produk diarsipkan",
+  "domain.verified": "Domain diverifikasi", "member.invite": "Anggota diundang", "member.invited": "Anggota diundang", "member.invitation_accepted": "Undangan anggota diterima",
+  "member.invitation_created": "Undangan anggota dibuat", "member.invitation_resent": "Masa berlaku undangan diperpanjang", "member.invitation_cancelled": "Undangan anggota dibatalkan", "member.role_updated": "Peran anggota diubah", "member.removed": "Anggota dihapus",
+  "order.processing_started": "Pemrosesan pesanan dimulai", "order.cancel": "Pesanan dibatalkan", "order.dispatch_queued": "Pengiriman masuk antrean",
 };
-
-const sampleAuditLogs: AuditLogRow[] = [
-  { id: "log_1", action: "TENANT_PROVISIONED", actorEmail: "superadmin@dotads.com", ipAddress: "127.0.0.1", details: "Toko Alpha berhasil dibuat dan siap digunakan.", createdAt: "2026-08-14T10:00:00+07:00" },
-  { id: "log_2", action: "FORM_SCHEMA_PUBLISHED", actorEmail: "owner@store-alpha.com", ipAddress: "180.252.10.14", details: "Formulir COD satu halaman versi 2 diterbitkan.", createdAt: "2026-08-14T10:12:30+07:00" },
-  { id: "log_3", action: "DOMAIN_ADD_ATTEMPT", actorEmail: "owner@store-alpha.com", ipAddress: "180.252.10.14", details: "Domain store-alpha.com ditambahkan untuk verifikasi.", createdAt: "2026-08-13T10:20:15+07:00" },
-  { id: "log_4", action: "MENGANTAR_DISPATCH", actorEmail: "ops@store-alpha.com", ipAddress: "100.127.67.86", details: "Resi MNG_51628351 diserahkan ke JNE.", createdAt: "2026-08-10T10:45:00+07:00" },
-  { id: "log_5", action: "MEMBER_INVITED", actorEmail: "owner@store-alpha.com", ipAddress: "180.252.10.14", details: "Undangan anggota dikirim ke finance@store-alpha.com.", createdAt: "2026-07-28T09:30:00+07:00" },
-];
-
-const dateFormatter = new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" });
+const ROLE_LABELS: Record<string, string> = { TENANT_OWNER: "Pemilik Toko", ADMIN: "Admin Toko", ADVERTISER: "Pengelola Iklan", CUSTOMER_SERVICE: "Layanan Pelanggan", SUPER_ADMIN: "Super Admin" };
+const actionLabel = (value: string) => ACTION_LABELS[value] ?? "Aktivitas sistem";
+const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message : "Log aktivitas belum dapat dimuat.";
 
 export default function AdminAuditLogsPage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [actionFilter, setActionFilter] = useState<AuditAction | "all">("all");
-  const [periodFilter, setPeriodFilter] = useState<"all" | "7" | "30">("all");
-  const [selectedLog, setSelectedLog] = useState<AuditLogRow | null>(null);
+  const [page, setPage] = useState<TenantAuditLogPage | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [queryInput, setQueryInput] = useState("");
+  const [query, setQuery] = useState("");
+  const [action, setAction] = useState("");
+  const [days, setDays] = useState<"" | "7" | "30">("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
-  const filteredLogs = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-    const now = new Date("2026-08-14T23:59:59+07:00").getTime();
-    return sampleAuditLogs.filter((log) => {
-      const matchesSearch = !query || `${actionLabels[log.action]} ${log.actorEmail} ${log.details} ${log.ipAddress}`.toLowerCase().includes(query);
-      const matchesAction = actionFilter === "all" || log.action === actionFilter;
-      const matchesPeriod = periodFilter === "all" || now - new Date(log.createdAt).getTime() <= Number(periodFilter) * 86_400_000;
-      return matchesSearch && matchesAction && matchesPeriod;
-    });
-  }, [actionFilter, periodFilter, searchTerm]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true); setError(null);
+    listTenantAuditLogs({ limit: LIMIT, offset, q: query || undefined, action: action || undefined, days: days ? Number(days) as 7 | 30 : undefined }, (input, init) => fetch(input, { ...init, signal: controller.signal }))
+      .then(setPage).catch((cause) => { if (!controller.signal.aborted) setError(errorMessage(cause)); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [action, days, offset, query, reload]);
 
-  const resetFilters = () => {
-    setSearchTerm("");
-    setActionFilter("all");
-    setPeriodFilter("all");
-  };
+  const submit = (event: FormEvent) => { event.preventDefault(); setOffset(0); setQuery(queryInput.trim()); };
+  const reset = () => { setQueryInput(""); setQuery(""); setAction(""); setDays(""); setOffset(0); };
+  const filtered = !!query || !!action || !!days;
 
-  return (
-    <div className="space-y-6 pb-8">
-      <header>
-        <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-indigo-600"><ShieldAlert className="h-4 w-4" /> Keamanan & Kepatuhan</div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Riwayat Audit</h1>
-        <p className="mt-1 text-sm text-slate-500">Telusuri perubahan toko, tindakan anggota, dan aktivitas keamanan. Waktu ditampilkan dalam WIB.</p>
-      </header>
-
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-3 border-b border-slate-100 p-5 md:grid-cols-[minmax(240px,1fr)_220px_180px_auto]">
-          <label className="relative"><span className="sr-only">Cari riwayat audit</span><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Cari pelaku, tindakan, IP, atau rincian..." className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20" /></label>
-          <label className="relative"><span className="sr-only">Filter tindakan</span><FileText className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><select value={actionFilter} onChange={(event) => setActionFilter(event.target.value as AuditAction | "all")} className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"><option value="all">Semua tindakan</option>{(Object.keys(actionLabels) as AuditAction[]).map((action) => <option key={action} value={action}>{actionLabels[action]}</option>)}</select></label>
-          <label className="relative"><span className="sr-only">Filter periode</span><CalendarDays className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><select value={periodFilter} onChange={(event) => setPeriodFilter(event.target.value as "all" | "7" | "30")} className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"><option value="all">Semua waktu</option><option value="7">7 hari terakhir</option><option value="30">30 hari terakhir</option></select></label>
-          <button onClick={resetFilters} className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Atur ulang</button>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50/80 text-xs uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3 font-semibold">Tindakan</th><th className="px-5 py-3 font-semibold">Pelaku</th><th className="px-5 py-3 font-semibold">Alamat IP</th><th className="px-5 py-3 font-semibold">Waktu (WIB)</th><th className="px-5 py-3"><span className="sr-only">Buka rincian</span></th></tr></thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredLogs.map((log) => (
-                <tr key={log.id} onClick={() => setSelectedLog(log)} className="cursor-pointer transition-colors hover:bg-slate-50/70">
-                  <td className="px-5 py-4"><span className="rounded-md border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-800">{actionLabels[log.action]}</span><p className="mt-2 max-w-sm truncate text-xs text-slate-500">{log.details}</p></td>
-                  <td className="px-5 py-4"><span className="flex items-center gap-2 font-medium text-slate-700"><User className="h-4 w-4 text-slate-400" />{log.actorEmail}</span></td>
-                  <td className="px-5 py-4 font-mono text-xs text-slate-500">{log.ipAddress}</td>
-                  <td className="whitespace-nowrap px-5 py-4 text-xs text-slate-500">{dateFormatter.format(new Date(log.createdAt))}</td>
-                  <td className="px-5 py-4 text-right"><ChevronRight className="inline h-4 w-4 text-slate-400" /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {filteredLogs.length === 0 && <div className="p-10 text-center"><FileText className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-semibold text-slate-700">Tidak ada riwayat yang cocok</p><button onClick={resetFilters} className="mt-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700">Atur ulang filter</button></div>}
-        </div>
-        <div className="border-t border-slate-100 bg-slate-50/50 px-5 py-3 text-xs text-slate-500">Menampilkan {filteredLogs.length} dari {sampleAuditLogs.length} aktivitas.</div>
-      </section>
-
-      {selectedLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="audit-detail-title">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl">
-            <div className="flex items-start justify-between border-b border-slate-100 p-5"><div><h2 id="audit-detail-title" className="text-lg font-bold text-slate-900">Rincian Aktivitas</h2><p className="mt-1 text-xs text-slate-500">ID audit: {selectedLog.id}</p></div><button onClick={() => setSelectedLog(null)} aria-label="Tutup" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button></div>
-            <dl className="grid grid-cols-[120px_1fr] gap-x-4 gap-y-4 p-5 text-sm"><dt className="font-semibold text-slate-500">Tindakan</dt><dd className="font-semibold text-slate-900">{actionLabels[selectedLog.action]}</dd><dt className="font-semibold text-slate-500">Pelaku</dt><dd className="break-all text-slate-900">{selectedLog.actorEmail}</dd><dt className="font-semibold text-slate-500">Alamat IP</dt><dd className="font-mono text-slate-900">{selectedLog.ipAddress}</dd><dt className="font-semibold text-slate-500">Waktu</dt><dd className="text-slate-900">{dateFormatter.format(new Date(selectedLog.createdAt))} WIB</dd><dt className="font-semibold text-slate-500">Rincian</dt><dd className="leading-relaxed text-slate-900">{selectedLog.details}</dd></dl>
-            <div className="flex justify-end border-t border-slate-100 p-5"><button onClick={() => setSelectedLog(null)} className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">Tutup</button></div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  return <div className="space-y-5 pb-8">
+    <header><div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-indigo-600"><ShieldCheck className="h-4 w-4" aria-hidden="true" /> Akses dan keamanan</div><h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Log Aktivitas</h1><p className="mt-1 text-sm text-slate-500">Tinjau aktivitas yang tercatat untuk toko aktif. Waktu ditampilkan dalam WIB.</p></header>
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <form onSubmit={submit} className="grid gap-3 border-b border-slate-100 p-4 md:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_220px_180px_auto_auto]">
+        <label className="relative"><span className="sr-only">Cari log aktivitas</span><Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" aria-hidden="true" /><input type="search" maxLength={100} value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Cari pelaku, tindakan, atau target" className="min-h-11 w-full rounded-lg border border-slate-300 pl-9 pr-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20" /></label>
+        <label className="relative"><span className="sr-only">Filter tindakan</span><FileText className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" aria-hidden="true" /><select value={action} onChange={(event) => { setAction(event.target.value); setOffset(0); }} className="min-h-11 w-full appearance-none rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm"><option value="">Semua tindakan</option>{page?.filters.actions.map((value) => <option key={value} value={value}>{ACTION_LABELS[value] ? actionLabel(value) : `Aktivitas sistem · ${value}`}</option>)}</select></label>
+        <label className="relative"><span className="sr-only">Filter periode</span><CalendarDays className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" aria-hidden="true" /><select value={days} onChange={(event) => { setDays(event.target.value as typeof days); setOffset(0); }} className="min-h-11 w-full appearance-none rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm"><option value="">Semua waktu</option><option value="7">7 hari terakhir</option><option value="30">30 hari terakhir</option></select></label>
+        <button className="min-h-11 rounded-lg bg-slate-900 px-5 text-sm font-bold text-white">Cari</button>
+        <button type="button" onClick={reset} disabled={!filtered && !queryInput} className="min-h-11 rounded-lg px-4 text-sm font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-40">Atur ulang</button>
+      </form>
+      {loading && !page ? <Skeleton /> : error && !page ? <State icon={AlertCircle} title="Log aktivitas belum dapat dimuat" detail={error}><button onClick={() => setReload((value) => value + 1)} className="min-h-11 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white"><RefreshCw className="mr-2 inline h-4 w-4" />Coba lagi</button></State> : page && page.items.length === 0 ? <State icon={FileText} title={filtered ? "Tidak ada hasil" : "Belum ada aktivitas tercatat"} detail={filtered ? "Ubah pencarian atau filter untuk melihat aktivitas lain." : "Aktivitas yang tersedia akan tampil di halaman ini."}>{filtered && <button onClick={reset} className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-bold">Atur ulang filter</button>}</State> : page && <>
+        {error && <div role="alert" className="m-4 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><span>Data terbaru belum dapat dimuat. Data sebelumnya masih ditampilkan.</span><button onClick={() => setReload((value) => value + 1)} className="font-bold underline">Coba lagi</button></div>}
+        <div className="divide-y divide-slate-100 lg:hidden">{page.items.map((item) => <AuditCard key={item.id} item={item} />)}</div>
+        <div className="hidden overflow-x-auto lg:block"><table className="w-full min-w-[820px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Tindakan</th><th className="px-5 py-3">Pelaku</th><th className="px-5 py-3">Target</th><th className="px-5 py-3">Waktu (WIB)</th></tr></thead><tbody className="divide-y divide-slate-100">{page.items.map((item) => <AuditRow key={item.id} item={item} />)}</tbody></table></div>
+        <Pagination page={page} onOffset={setOffset} />
+      </>}
+    </section>
+  </div>;
 }
+
+function AuditCard({ item }: { item: TenantAuditLog }) { return <article className="space-y-3 p-4"><div className="flex items-start justify-between gap-3"><span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-800">{actionLabel(item.action)}</span><time className="text-right text-xs text-slate-500">{WIB.format(new Date(item.createdAt))} WIB</time></div>{!ACTION_LABELS[item.action] && <p className="font-mono text-[11px] text-slate-400">{item.action}</p>}<div className="flex items-center gap-2 text-sm"><User className="h-4 w-4 text-slate-400" aria-hidden="true" /><span className="break-all font-semibold text-slate-800">{item.actor.email}</span></div><dl className="grid grid-cols-[72px_1fr] gap-2 text-xs"><dt className="text-slate-500">Peran</dt><dd>{ROLE_LABELS[item.actor.role] ?? item.actor.role}</dd><dt className="text-slate-500">Objek</dt><dd className="break-all font-mono">{item.target.type} · {item.target.id}</dd></dl></article>; }
+function AuditRow({ item }: { item: TenantAuditLog }) { return <tr><td className="px-5 py-4"><span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-800">{actionLabel(item.action)}</span><p className="mt-2 font-mono text-[11px] text-slate-400">{item.action}</p></td><td className="px-5 py-4"><p className="font-semibold text-slate-800">{item.actor.email}</p><p className="mt-1 text-xs text-slate-500">{ROLE_LABELS[item.actor.role] ?? item.actor.role}</p></td><td className="px-5 py-4"><p>{item.target.type}</p><p className="mt-1 max-w-xs break-all font-mono text-xs text-slate-500">{item.target.id}</p></td><td className="whitespace-nowrap px-5 py-4 text-xs text-slate-500">{WIB.format(new Date(item.createdAt))} WIB</td></tr>; }
+function Pagination({ page, onOffset }: { page: TenantAuditLogPage; onOffset: (value: number) => void }) { const end = Math.min(page.pagination.offset + page.pagination.limit, page.pagination.total); return <footer className="flex items-center justify-between gap-3 border-t border-slate-100 p-4 text-sm"><p className="text-slate-500">{page.pagination.total ? page.pagination.offset + 1 : 0}–{end} dari {page.pagination.total} aktivitas</p><div className="flex gap-2"><button aria-label="Halaman sebelumnya" disabled={page.pagination.offset === 0} onClick={() => onOffset(Math.max(0, page.pagination.offset - page.pagination.limit))} className="grid min-h-11 min-w-11 place-items-center rounded-lg border border-slate-300 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button><button aria-label="Halaman berikutnya" disabled={end >= page.pagination.total} onClick={() => onOffset(page.pagination.offset + page.pagination.limit)} className="grid min-h-11 min-w-11 place-items-center rounded-lg border border-slate-300 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button></div></footer>; }
+function Skeleton() { return <div aria-label="Memuat log aktivitas" className="space-y-3 p-4">{[0, 1, 2].map((item) => <div key={item} className="h-20 animate-pulse rounded-lg bg-slate-100 motion-reduce:animate-none" />)}</div>; }
+function State({ icon: Icon, title, detail, children }: { icon: typeof AlertCircle; title: string; detail: string; children?: React.ReactNode }) { return <div className="grid min-h-72 place-items-center p-6 text-center"><div><Icon className="mx-auto h-9 w-9 text-slate-400" /><h2 className="mt-3 font-bold text-slate-900">{title}</h2><p className="mx-auto mt-1 max-w-md text-sm text-slate-500">{detail}</p>{children && <div className="mt-4">{children}</div>}</div></div>; }

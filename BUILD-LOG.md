@@ -375,3 +375,62 @@ Release remains **NO-GO**. These checks verify bounded Catalog/Products, Members
 - Migration `0015` uses blocking `CREATE UNIQUE INDEX`; tmpfs execution is not production lock-duration evidence. Duplicate preflight, table size, maintenance traffic, lock/statement timeouts, and recovery require an approved environment plan.
 - The worktree is mutable, not one reviewed immutable release revision.
 - Release remains **NO-GO**: provider delivery/recovery, complete commerce/CMS/role/browser matrices, privacy/incident ownership, backup/restore, migration rehearsal, and deployment evidence remain open.
+
+## 2026-08-17 — Merchant Workspace Product/IA Audit and Task Contract
+
+### Observed scope before the parallel UI implementation
+
+- Static inspection enumerated 16 tenant merchant `page.tsx` routes plus the merchant login route, the typed role navigation, direct-route guard, sidebar/shell, shared permission map, and registered admin/catalog/dashboard/member API routes.
+- Dashboard, Orders, Products, and Members were connected to typed persisted clients. Landing Page, Form, Tracking, Reconciliation, Shipping/WhatsApp, Store, Warehouse, Domains, tenant Audit, Mengantar, AutoLaris, and Profile pages still contained seeded arrays/values, client-local mutation success, simulated results, or incomplete persistence in the inspected source.
+- The inspected Customer Service menu linked to the Mengantar integration/configuration page even though the role's operational job and permissions do not authorize provider-secret management.
+- The inspected shell rendered a search-looking affordance without a tenant-scoped search contract. Profile was a primary sidebar destination despite workspace switching and sign-out already behaving as account utilities.
+
+### Executed documentation checks
+
+| Command / probe | Result | Bounded conclusion |
+| --- | --- | --- |
+| Merchant route/page/navigation/permission/API inventory using `rg` over `apps/admin`, `apps/api`, and `packages/auth` | **PASS / FINDINGS RECORDED** | Produced the observed workflow, role, dead/synthetic-menu, and API-coverage inventory used by `REQ-ADM-016`–`REQ-ADM-024` and `T-1031`–`T-1043`; it is static evidence, not browser/runtime proof. |
+| `pnpm docs:check` | **PASS** | 17 canonical owners, 22 controlled mirrors, 96 permanent requirements, and 43 permanent tasks passed repository ownership/traceability checks. |
+| `cmp -s PRD.md docs/PRD.md`, `cmp -s TASKS.md docs/TASKS.md`, and scoped `git diff --check` | **PASS** | Canonical PRD/TASKS and compatibility mirrors are byte-identical and the documentation diff has no whitespace errors. |
+
+The resulting target menu is task-first and role-scoped: Ringkasan; Operasional (Pesanan, Produk, Pengiriman); Konten & Iklan (Landing Page, Form Pesanan, Tracking Iklan); Keuangan (Rekonsiliasi); and governed Pengaturan. Synthetic destinations must remain hidden or explicitly unavailable until their real authorized workflows exist. This planning evidence does not claim those tasks are implemented.
+
+## 2026-08-17 — Focused Merchant Navigation, Tenant Audit, and Manual-DNS Domain Slice
+
+### Implemented scope
+
+- Reduced the merchant navigation to implemented role-authorized destinations. Owner sees Ringkasan, Pesanan, Produk, Anggota Tim, Domain Kustom, and Log Aktivitas; Admin omits Domain Kustom; Advertiser lands on Produk; Customer Service sees Ringkasan, Pesanan, and Produk. Profile, global search, builders, provider configuration, tracking, reconciliation, and other simulated pages are hidden and denied by the shared tenant route guard.
+- Refined the merchant login, workspace/account controls, and Dashboard language in Indonesian. Login errors no longer expose arbitrary backend copy; duplicate submission is prevented; production remains email-based; safe invitation return handling remains in place.
+- Connected tenant Log Aktivitas to a bounded persisted Owner/Admin read API. The public response deliberately omits metadata, IP address, user agent, and internal actor identifier.
+- Connected Domain Kustom to an Owner-only persisted list/create API. Hostnames are normalized, duplicates return a conflict, creation and audit insertion are transactional, and the UI presents only manual TXT instructions. Automated DNS verification, SSL, primary-domain mutation, and deletion are explicitly unavailable.
+- Regenerated the OpenAPI snapshots. Root and `docs/` remain byte-identical and contain exactly 48 paths.
+
+### Executed evidence
+
+| Command or probe | Result | Bounded conclusion |
+| :--- | :--- | :--- |
+| `pnpm --filter @dotads/admin smoke:admin-navigation` | **PASS** | Exact focused merchant menu entries and role differences passed. |
+| `pnpm --filter @dotads/admin smoke:admin-route-access` | **PASS** | The six-role allowed/denied, nested-path, and prefix-boundary matrix passed; this is a server-guard contract, not the complete API authorization matrix. |
+| `pnpm --filter @dotads/admin smoke:admin-dashboard` | **PASS** | Strict Dashboard client parsing and request behavior passed. |
+| `pnpm --filter @dotads/admin smoke:admin-audit-logs` | **PASS** | Strict audit response parsing, bounded filters/pagination, and malformed-response rejection passed. |
+| `pnpm --filter @dotads/admin smoke:admin-domains` | **PASS** | Strict domain parsing, list/create request shape, duplicate/error handling, and unsupported-capability boundaries passed. |
+| `pnpm --filter @dotads/admin exec tsc --noEmit` | **PASS** | The focused admin changes type-checked. |
+| `pnpm --filter @dotads/api build` | **PASS** | Tenant audit/domain route and OpenAPI changes compiled. |
+| `pnpm test:clean-db` | **PASS / LOCAL BACKEND** | The current PostgreSQL chain through migration `0015` passed. Tenant audit covered bounded tenant reads, redaction, and Owner/Admin role boundaries. Tenant domains covered list/create persistence, normalization, duplicate conflict, cross-tenant denial, non-owner denial, and transactional actor audit evidence. This is not deployment or DNS-provider evidence. |
+| Owner merchant Chrome at 1280/768/390 | **PASS / BOUNDED ROLE SCOPE** | Login/workspace entry, Dashboard, Log Aktivitas, and Domain Kustom rendered without reported overflow, runtime, network, or console errors. Domain dialog autofocus, Escape dismissal, and focus return passed. Other tenant roles and forced-state matrices were not exercised. |
+| OpenAPI export plus root/`docs/` comparison | **PASS** | Regenerated byte-identical snapshots contain exactly 48 paths, including the current strict tenant audit/domain operations. |
+| `pnpm docs:check`, controlled-mirror comparisons, and scoped `git diff --check` | **PASS** | 17 canonical owners, 22 controlled mirrors, 96 permanent requirements, and 43 permanent tasks passed; canonical/mirror task, status, build-log, and OpenAPI files are byte-identical and the scoped documentation diff has no whitespace errors. |
+
+### Remaining blockers
+
+- T-1032 remains open: the current login revision lacks one complete 1280/768/390 matrix for single/multiple workspace, invalid credentials, invitation return, suspension, stale session, retry, and sign-out.
+- T-1033 remains open: Owner real-data rendering and Advertiser static landing behavior passed, but seeded Admin, Advertiser, and Customer Service browser cases plus forced empty/error recovery are missing.
+- T-1034 remains open: simulated routes are quarantined by navigation and server guard, but the seeded/local-only implementations remain in the repository and the complete synthetic-content/direct-bookmark browser scan is not recorded.
+- T-1037 remains open: only the tenant audit and Owner-only manual-DNS domain settings slices advanced in this pass. Store, locations/warehouses, integrations, WhatsApp messaging, the complete team lifecycle, and complete domain lifecycle remain unfinished.
+- T-1038 and T-1039 remain open: the complete four-role/device/accessibility/forced-state matrix and canonical reviewed Indonesian terminology map/scan are missing.
+- T-1040 and T-1041 remain blocked. Landing Pages and Forms lack strict detail/update contracts, bounded complete version snapshots, concurrency semantics, atomic selected-version publishing, and dependable public published-version resolution; their current editors remain seeded/local-only and quarantined.
+- The current worktree is mutable and the evidence does not establish provider delivery, staging operations, backup/restore, rollback, or a production migration rehearsal.
+
+### Release decision
+
+Release remains **NO-GO**. This delivery verifies a focused merchant navigation plus bounded tenant audit and Owner-only manual-DNS domain slices; it does not complete merchant role/state coverage, builder persistence, settings governance, provider delivery, or production operations.

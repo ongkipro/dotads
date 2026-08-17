@@ -31,7 +31,7 @@ export function SwitchAccountButton({
       if (!response.ok) throw new Error("Sign-out failed");
       window.location.assign("/login");
     } catch {
-      setError("Akun belum berhasil dikeluarkan. Coba lagi.");
+      setError("Anda belum berhasil keluar. Coba lagi.");
       setPending(false);
     }
   };
@@ -46,14 +46,14 @@ export function SwitchAccountButton({
         type="button"
         onClick={() => void switchAccount()}
         disabled={pending}
-        aria-label={pending ? "Sedang mengganti akun" : "Ganti akun"}
+        aria-label={pending ? "Sedang keluar" : "Keluar dan gunakan akun lain"}
         aria-busy={pending}
         aria-describedby={error ? errorId : undefined}
-        title="Ganti akun"
+        title="Keluar dan gunakan akun lain"
         className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 ${toneClasses} ${buttonClassName}`}
       >
         {pending ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <LogOut className="h-4 w-4" aria-hidden="true" />}
-        {showLabel && <span>{pending ? "Memproses…" : "Ganti akun"}</span>}
+        {showLabel && <span>{pending ? "Sedang keluar…" : "Keluar dan ganti akun"}</span>}
       </button>
       {error && (
         <p id={errorId} role="alert" className="fixed bottom-20 right-4 z-[60] max-w-[calc(100vw-2rem)] rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800 shadow-lg md:bottom-4">
