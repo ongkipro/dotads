@@ -1,4 +1,5 @@
 {
+  "record_role": "Historical design/bootstrap approvals plus separate current runtime evidence; prior approval hashes remain unchanged.",
   "document": "account-workspace-guide.md",
   "revision": 3,
   "document_sha256": "d2737ca308e194d0ee4edb43f252f8c3fdce1513c95337595da1987371ba526b",
@@ -110,5 +111,198 @@
       "dotads-meta baseline --market ID --province \"Jawa Barat\" --city \"Kota Depok\""
     ],
     "limits": "Documentation and read-only decision evidence; does not validate unimplemented reporting/import workflows or live provider behavior"
+  },
+  "historical_review_policy": "Approval hashes above describe the reviewed historical snapshot; do not rewrite them when a file changes. Current bootstrap changes require their own review.",
+  "bootstrap_followup_review": {
+    "review_date": "2026-10-27",
+    "base_commit": "2fcf82afa8ef077535265684de1fdbbfbf9a47ff",
+    "result": "APPROVE_OFFLINE_BOOTSTRAP_PATCH",
+    "reviewer": "/root/bootstrap_review",
+    "model": "unavailable: active model identifier is not exposed by the reviewer session",
+    "provider": "unavailable: actual provider routing metadata is not exposed by the reviewer session",
+    "reasoning": "unavailable: reasoning-effort setting is not exposed by the reviewer session",
+    "files": [
+      {
+        "path": "bin/dotads-meta",
+        "sha256": "cb96e9f2c1bc2b5d837e3d614f153d44a09302ed4d9083fbecd56a77f5d323d4"
+      },
+      {
+        "path": "bin/dotads-meta-test",
+        "sha256": "4a017a98a4364dcc172a683cea95eaefcab31ede1f31ae0a1c133165b59dd37a"
+      },
+      {
+        "path": "bin/installer-link-test",
+        "sha256": "5df3ac39a26a45ff77b468981b9ad209775736b8f0b66c0c00e3a44034d73517"
+      },
+      {
+        "path": "install.sh",
+        "sha256": "f486da96476e44eea38e3b4cb56436ac9dccbce581e11af81de0898e839b82e3"
+      },
+      {
+        "path": "install-macos.sh",
+        "sha256": "249ff651028e161add24628475731861747bf6359e251e10181c5566e09fc8fd"
+      },
+      {
+        "path": "skills/local/meta-ads-cli/SKILL.md",
+        "sha256": "eab509c46da8e5ccca563c69be19a17632cb6f8f02ff96b5e9419b25461ffb49"
+      },
+      {
+        "path": "skills/local/meta-ads-cli/GUIDE.id.md",
+        "sha256": "cf164c11e339f9e7c12a0fac78410e3b71397d3e1d8470afba319496a601c390"
+      },
+      {
+        "path": "skills/local/meta-ads-cli/references/terminal-control.md",
+        "sha256": "2e64af6c76abbf976b6b6f519c4e93fc019bd90a60365ea2cf857b50572d826e"
+      }
+    ],
+    "evidence_type": "INDEPENDENT_SOURCE_REVIEW_AND_OFFLINE_EXECUTION",
+    "executed_checks": [
+      "bin/dotads-meta-test (full suite, source hashes stable during run)",
+      "bin/installer-link-test (Linux execution of both installer bootstrap blocks)",
+      "git diff --check"
+    ],
+    "regression_evidence": "The new workspace-routing test fails on 2fcf82a and passes on the repaired implementation",
+    "invalidated_attempt": "An initial reviewer helper run overlapped source edits; it is superseded by the successful rerun on a stable snapshot",
+    "limits": [
+      "No real macOS execution",
+      "No actual package installation, credentials, network/account calls or live spend",
+      "Parents must remain operator-controlled; concurrent directory replacement is outside the bootstrap contract"
+    ],
+    "delivery_run": "RUN-20261027T160756Z-7c8deb3c"
+  },
+  "reporting_runtime_review": {
+    "review_date": "2026-10-28",
+    "task": "TASK-155",
+    "delivery_run": "RUN-20261027T163122Z-9c4249c0",
+    "implementation_status": "IMPLEMENTED_WITH_OFFLINE_EVIDENCE",
+    "reviewer": "/root/meta_reporting_review",
+    "review_type": "INDEPENDENT_SOURCE_REVIEW_AND_EXECUTED_OFFLINE_TESTS",
+    "files": [
+      {
+        "path": "bin/dotads-meta",
+        "sha256": "7eeaeef99e4ea63fe51167ca0b22b6e74baed1f61e76c57033584c2d117a053b"
+      },
+      {
+        "path": "bin/dotads-meta-test",
+        "sha256": "9f88cdc12393f8a752c146ed73344679e78afacf6c156ee54738fa81ca5f916b"
+      },
+      {
+        "path": "bin/_dotads-meta-provider.py",
+        "sha256": "2d54600539591f291bfb1f360de33fdcd46197bfdc56aff746a52b4d45413082"
+      },
+      {
+        "path": "bin/_dotads-meta-provider-test.py",
+        "sha256": "a48edce40ec97eda12260ea538f8e4278137b0fc6008fcfbbdd11c498d7e9d53"
+      },
+      {
+        "path": "bin/_dotads-workspace.mjs",
+        "sha256": "2799c596f091d71aa526c3386b7d979841fae4052bf59c1a14dc8bf10647a634"
+      },
+      {
+        "path": "bin/_dotads-workspace-test.mjs",
+        "sha256": "77edbac15cbaf6afd70a0642c06fe20605a5286720ef90a54989dd5cdc14aa3e"
+      },
+      {
+        "path": ".github/workflows/core-runtime.yml",
+        "sha256": "e31e7a0e499fed9e436d3a18fed70bcaa0b2b5ed76875e33c39dca4d17162e16"
+      },
+      {
+        "path": "skills/local/meta-ads-cli/SKILL.md",
+        "sha256": "471bb069144ceb39776b7bbcaea34dd8cf573ecb783fa6dc73c27e9e2860e6c3"
+      },
+      {
+        "path": "skills/local/meta-ads-cli/GUIDE.id.md",
+        "sha256": "d60cb586f4ce979e48e5adfb48484ee60bf3fda5e9508ed90707ef185f0b4cf1"
+      },
+      {
+        "path": "skills/local/meta-ads-cli/references/account-workspace-runtime.md",
+        "sha256": "9bef357d7afc9f51f2aac480c0246ac1c801c6f58fb82d34856ec9adb480628a"
+      },
+      {
+        "path": "skills/local/meta-ads-cli/references/api-and-evidence.md",
+        "sha256": "50a23dce48ed2c24b90aa1900eafc2584e7eeef2ed85f9cc0214d6aaf020c708"
+      },
+      {
+        "path": "skills/local/meta-ads-cli/references/roas-cpr-profit-intelligence.md",
+        "sha256": "9e5eca1671c0c924cdccd1880364f1c937edf2c6328d85a904f979e7a4c49310"
+      },
+      {
+        "path": "skills/local/meta-ads-cli/references/rules-and-tutorial.md",
+        "sha256": "83ff2c058d217b5a808e7a7539462f761d1beb0224aa7bb4b79ef3794f221100"
+      },
+      {
+        "path": "skills/local/meta-ads-cli/references/terminal-control.md",
+        "sha256": "8fabae0cc10111bdbd3350c579622d42343edcbefc24853ecd5547028dd96eb5"
+      }
+    ],
+    "executed_evidence": {
+      "provider_contracts": 26,
+      "workspace_filesystem_contracts": 32,
+      "cli_regression": "PASS",
+      "symlink_TMPDIR_regression": "PASS",
+      "cross_filesystem_media_and_ENOSPC_recovery": "PASS",
+      "actionlint": "PASS"
+    },
+    "evidence_scope": "Installed SDK with substituted HTTP, real temporary filesystem and fake provider/secret processes; no actual account request",
+    "remaining_limits": [
+      "Real credentials/account and effective server behavior not verified",
+      "Actual macOS/hosted CI not executed",
+      "No resumable asynchronous network backfill",
+      "No remote media retrieval/page capture or full operational cutover",
+      "Operator-controlled parents required; hostile concurrent directory replacement outside bootstrap contract"
+    ],
+    "provenance": {
+      "model": "unavailable: exact active model ID is not exposed by reviewer session",
+      "provider": "unavailable: actual provider routing metadata is not exposed by reviewer session",
+      "reasoning": "unavailable: actual effort setting is not exposed by reviewer session"
+    }
+  },
+  "reporting_test_portability_review": {
+    "review_date": "2026-10-28",
+    "reviewer": "/root/meta_reporting_review",
+    "result": "APPROVE_TEST_ONLY_FOLLOWUP",
+    "files": [
+      {
+        "path": "bin/dotads-meta-test",
+        "sha256": "434d65f59c064a5eb9734831e59ec15223ab54522a24ac1dde5bfd6a9f738762"
+      }
+    ],
+    "change": "Resolve the actual Node executable before changing HOME/cwd in fixtures, avoiding configuration-dependent mise shims",
+    "executed_evidence": "Full CLI suite passed independently with mise shims first in PATH and symlink TMPDIR; source stable during run",
+    "production_code": "Unchanged from the preceding runtime review",
+    "historical_record_policy": "The preceding reporting_runtime_review is unchanged; this later approval owns the changed test hash",
+    "aggregate_system_status": "Separate full normal-clone rerun pending; not claimed by this fixture approval"
+  },
+  "knowledge_navigation_followup_review": {
+    "review_date": "2026-10-28",
+    "reviewer": "/root/meta_reporting_review",
+    "result": "APPROVE_DOCUMENTATION_AND_MEMORY",
+    "files": [
+      {
+        "path": "config/ai/memory/meta-ads.md",
+        "sha256": "ae04347d89a373fd04843889d48c1c99c0ef43c779c817b72cdf46297b43b619"
+      },
+      {
+        "path": "config/ai/memory-router.json",
+        "sha256": "edae7ab5aecb6e3c9cc25e37115fe3cb3c5736590c9bdac70daf6c32dcf256bf"
+      },
+      {
+        "path": "docs/DOTFILES_SITEMAP.md",
+        "sha256": "dbeeb734d8cb43f06f13a6ddb3dbe10e80085b16f4d2b475afdd5a78b1a91e52"
+      },
+      {
+        "path": "skills/local/meta-ads-cli/references/rules-and-tutorial.md",
+        "sha256": "097b31fe32aa2e32f2a43107e908cadca9d014c78c51c27b6c337964f87b68f2"
+      },
+      {
+        "path": "skills/local/meta-ads-cli/references/terminal-control.md",
+        "sha256": "7b4977368096e6cc38e17cbbd97108c5d56a0f8d46ae3fa48c8f56f88c60f1ac"
+      }
+    ],
+    "scope": "On-demand Meta knowledge navigation, conditional campaign decisions and reviewed private-to-shared learning",
+    "executed_evidence": "Existing memory routing regression plus six focused inclusion/exclusion probes passed; card2724bytes; reference links resolve; policy lint passed",
+    "primary_source_check": "Meta Performance5, October2026 GEM/GenRecs and dated2023auction/pacing foundation checked without authentication",
+    "runtime_code": "Unchanged from preceding approved runtime and test snapshots",
+    "limits": "No real account request, measured conversion uplift, causal winner or ROAS guarantee established"
   }
 }

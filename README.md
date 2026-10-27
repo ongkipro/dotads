@@ -73,13 +73,14 @@ All specifications live in `./docs/`. See `docs/INDEX.md` for canonical read ord
 The [Bahasa Indonesia operator guide](docs/references/dotads-meta/GUIDE.id.md),
 [English AI terminal contract](docs/references/dotads-meta/references/terminal-control.md),
 [AI skill entrypoint](docs/references/dotads-meta/SKILL.md),
-[account workspace and existing-device guide](docs/references/dotads-meta/references/account-workspace-guide.md),
+[account reporting runtime](docs/references/dotads-meta/references/account-workspace-runtime.md),
+[historical workspace design](docs/references/dotads-meta/references/account-workspace-guide.md),
 and [bundle manifest](docs/references/dotads-meta/mirror.json) provide the complete mirrored
 `dotads-meta` documentation. Read these on demand for CLI account reporting and
 workspace organization. The maintained source is the `meta-ads-cli` skill in
 `ongkipro/dotfiles`; the manifest pins each mirrored file by content hash.
 
-The reporting workflow is a reviewed design proposal, not an implemented DotAds
-application feature. Existing product requirements, tenant authorization and
+This bundle documents the separate dotfiles CLI. It does not add reporting
+functionality or tenant access to the DotAds application. Existing product requirements, tenant authorization and
 monetary rules remain authoritative. An ad account ID does not establish tenant
 access, and no private account data or credentials belong in this reference bundle.

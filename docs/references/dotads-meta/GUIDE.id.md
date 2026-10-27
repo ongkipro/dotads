@@ -1,7 +1,7 @@
 # Panduan operator DotAds Meta
 
 Panduan penggunaan Bahasa Indonesia untuk bekerja bersama AI terminal.
-Status kemampuan diperiksa pada **27 Oktober 2026**; AI tetap memeriksa versi
+Status kemampuan diperiksa pada **28 Oktober 2026**; AI tetap memeriksa versi
 dan kondisi device yang sedang dipakai.
 
 **Cara kerjanya:** operator menetapkan tujuan, akun, batas biaya, dan keputusan.
@@ -52,13 +52,15 @@ atau teks iklan bukan izin baru untuk mengubah belanja.
 | Kebutuhan | Status dan batas |
 |---|---|
 | Riset dasar market Indonesia | `baseline --market ID` tersedia secara offline, tanpa token, brand atau produk tertentu. |
-| Membuat kerangka workspace | `init <folder>` tersedia. Isinya template yang harus diperiksa; ID, mata uang, domain dan aset contoh bukan data akun nyata. |
+| Membuat kerangka workspace | `init <nama>` membuatnya di `~/Documents/dotads-meta-report/`; `./folder` atau path absolut memilih lokasi lain. Isinya template, bukan hasil pembacaan akun. |
 | Memeriksa manifest dan rencana deploy | `validate` dan `deploy` tanpa `--apply` tersedia secara offline. |
 | Analisis file Insights JSON | `analyze <file>` tersedia; scope akun, mata uang, definisi hasil dan biaya harus sesuai. |
 | Melihat catatan entitas yang dibuat helper | `status` membaca `.meta-state.json`. Ini tidak mewakili seluruh isi akun di Meta. |
 | Membuat resource pada akun Meta | Jalur `deploy --apply` tersedia di helper; izin akun, kompatibilitas API dan rencananya tetap perlu dibuktikan. Hasil dibuat PAUSED secara default. |
-| Live pull melalui `analyze --pull` dengan CLI 1.2.0 yang diperiksa | Terblokir oleh ketidakcocokan format perintah/flag; gunakan data offline sampai adapter diperbaiki dan diuji. |
-| Auto-sync seluruh akun, laporan lengkap, impor media terkelola dan capture halaman | Masih rancangan. Jangan menganggap perintah otomatisnya sudah tersedia. |
+| Pembacaan akun dan Insights | `accounts`, `sync`, serta `analyze --pull` memakai adapter SDK resmi yang sudah terpasang. Kontraknya diuji offline; izin dan respons akun nyata tetap perlu diperiksa. |
+| Snapshot dan laporan akun | `sync` menyimpan data sesuai akun/periode/scope; `report` membuat Markdown/CSV dari snapshot tersimpan. Data parsial dan kegagalan terlihat. |
+| Impor media dan adopsi proyek lama | `import-media` menyalin file pilihan; `--move` meminta pemindahan. `adopt` menyiapkan referensi proyek tanpa memindahkan state deployment. |
+| Penjadwalan, capture halaman, download aset remote dan migrasi operasional penuh | Belum tersedia; metadata URL/aset bukan hasil capture atau file asli yang sudah diunduh. |
 
 AI dapat memeriksa bantuan lokal, tanpa mengambil data akun:
 
@@ -131,10 +133,22 @@ yang diperlukan sebelum AI memakai secret atau membaca akun.
 laporan tetap diperiksa terpisah. Jika terdapat beberapa akun, pilih akun tujuan
 dengan ID yang terverifikasi.
 
-Root yang direncanakan adalah `~/Documents/dotads-meta-report/`, dengan satu
-folder per akun. Saat ini AI bisa menyiapkan kerangka manual memakai `init`
-pada lokasi yang dipilih; pembuatan registry, sync dan laporan otomatis masih
-menunggu implementasi. Jangan mengisi hasil sync dengan ID atau data template.
+Root workspace adalah `~/Documents/dotads-meta-report/`. Installer dan `setup`
+menyiapkan root tersebut; `init <nama-akun>` menyiapkan root beserta kerangkanya.
+Nama tanpa pemisah path selalu masuk ke root itu, termasuk bila folder senama
+ada di direktori terminal. Gunakan `./folder` atau path absolut untuk memilih
+lokasi lain. Symlink atau izin privat yang gagal diverifikasi menghentikan
+bootstrap. Perubahan folder serentak oleh proses lain belum dilindungi kontrak
+bootstrap ini. ID dari nama folder belum membuktikan akses Meta; nilai template
+tetap harus diperiksa. Registry dan snapshot dibuat lewat `sync`; laporan dibuat
+ketika `report` dijalankan. Penjadwalan otomatis belum tersedia. Panduan teknis
+terbaru ada di [kontrak runtime](references/account-workspace-runtime.md).
+
+Untuk alur pelaporan, minta AI memilih akun terverifikasi dan periode secara
+eksplisit, menjalankan `sync`, memeriksa kelengkapan setiap resource/query, lalu
+menjalankan `report`. Folder lama yang belum terdaftar dipilih dengan
+`--existing-directory`; AI memeriksa kecocokan akun dan mempertahankan file lama.
+Kegagalan refresh tidak boleh dilaporkan sebagai data kosong atau sync sukses.
 
 ### C. Menganalisis data yang sudah diekspor
 
@@ -147,7 +161,8 @@ Jelaskan observasi, dugaan penyebab, dan pengujian berikutnya secara terpisah.
 ```
 
 Berikan file dan lokasi yang boleh dibaca. AI memakai analisis offline atau
-pengolahan yang terverifikasi, bukan jalur pull yang sedang terblokir. Satu akun
+pengolahan yang terverifikasi. Pembacaan SDK memerlukan izin terpisah; file
+impor diberi label sumber lokal, bukan bukti akses API pada device ini. Satu akun
 bisa memuat beberapa brand; biaya satu brand tidak otomatis berlaku untuk semuanya.
 Konteks yang tidak dapat dipastikan harus terlihat, termasuk data yang hilang,
 scope tidak cocok dan hasil yang belum matang.
@@ -187,12 +202,16 @@ Folder yang sudah sesuai mendapat hasil no-change. Nama akun yang sama tidak
 cukup untuk menggabungkan folder. File dari device lain belum tentu ada secara
 lokal; keberadaan dan hash-nya harus diperiksa.
 
-Impor media terkelola masih rancangan. Penataan manual oleh AI memerlukan
-scope/izin yang jelas dan pemeriksaan terpisah. Alur pindah yang dirancang
-mencatat operasi, mengamankan sumber terpilih, memverifikasi salinan dan baru
-membersihkan sumber sesuai kontraknya. File yang sama, sumber berubah, atau
-hasil yang belum durable menghentikan cleanup. Jangan memindahkan seluruh
-Downloads atau menghapus state untuk sekadar membuat struktur terlihat rapi.
+`import-media` menyalin satu file pilihan secara default. `--move` memerlukan
+izin pemindahan yang sesuai; operasi mencatat journal, mengamankan sumber,
+memverifikasi salinan dan indeks sebelum cleanup. File yang sama, sumber berubah,
+konflik, atau hasil yang belum durable menghentikan cleanup. Jangan memindahkan
+seluruh Downloads atau menghapus state untuk sekadar membuat struktur rapi.
+
+Untuk proyek lama di lokasi lain, `adopt` membuat rencana berbasis hash; `--apply`
+menambahkan referensi tanpa memindahkan media/state atau mengubah proyek sumber.
+Perubahan sumber memerlukan rencana baru. Migrasi operasional penuh tetap
+memerlukan rencana dan verifikasi tersendiri.
 
 ## Mengenali file dan lokasinya
 
@@ -203,8 +222,9 @@ Downloads atau menghapus state untuk sekadar membuat struktur terlihat rapi.
 | `brand.json` | Konfigurasi operasional dan referensi nama secret; cocokkan dengan akun yang dipilih. |
 | `campaigns/`, `media/`, `memory/` | Kerangka kerja yang sudah didukung helper; catatan memory bukan bukti winning. |
 | `.meta-state.json` | Catatan ID/state deployment helper. Pertahankan untuk pemeriksaan dan pemulihan. |
-| `ACCOUNT.md`, `sync.json`, snapshot `data/`, laporan `reports/`, capture `web/` | Struktur reporting yang dirancang; helper belum otomatis membuat keseluruhannya. |
-| `NOTES.md` dalam rancangan workspace | Catatan/keputusan manusia yang dipertahankan saat regenerasi laporan. |
+| `ACCOUNT.md`, `sync.json`, snapshot `data/`, laporan `reports/` | Ringkasan, status per-scope, data immutable, dan laporan Markdown/CSV yang sudah didukung. |
+| `media/index.json`, `web/index.json` | Provenance file lokal dan metadata tujuan/aset; tidak membuktikan capture atau download remote. |
+| `NOTES.md` dalam workspace | Catatan/keputusan manusia yang dipertahankan saat regenerasi laporan. |
 
 Dokumen teknis dan konfigurasi tetap English. Panduan operator ini Bahasa
 Indonesia; bahasa materi iklan mengikuti market yang benar-benar dipilih.
@@ -236,7 +256,8 @@ Laporan lama yang masih tersimpan tidak boleh disebut hasil sync terbaru.
 |---|---|
 | `dotads-meta` atau `meta` tidak ditemukan | Periksa path, link dan versi. Jelaskan pemasangan yang diperlukan; lakukan instalasi hanya jika sudah diizinkan. |
 | Token tersedia tetapi data akun gagal dibaca | Periksa akun, izin aset dan respons yang sudah disanitasi. Jangan menampilkan token atau menganggap seluruh data kosong. |
-| `analyze --pull` ditolak | Gunakan jalur offline; rujuk blocker adapter di panduan teknis, bukan mencoba flag rekaan. |
+| Pembacaan SDK gagal | Periksa akun, izin, versi dan scope dari pesan yang disanitasi. Gunakan file offline bila tersedia; jangan menghapus snapshot sukses atau mencoba flag rekaan. |
+| `report` menolak hasil terbaru | Periksa apakah scope hanya memiliki data parsial/gagal. Pilih snapshot/scope lama secara eksplisit dan pertahankan label periode/freshness sebenarnya. |
 | `status` kosong | Bedakan state lokal dari isi akun remote; jangan menyimpulkan akun tidak punya iklan. |
 | Metrik atau biaya `unknown` | Jelaskan sumber yang kurang/tidak cocok. Jangan menggantinya dengan nol atau biaya default. |
 | State/journal rusak atau lock meragukan | Hentikan tindakan berisiko, periksa bukti dan rencana pemulihan. Jangan menghapus state atau memakai `init --force` untuk menutupi masalah. |

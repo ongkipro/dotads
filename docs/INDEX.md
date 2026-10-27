@@ -35,7 +35,9 @@ and does not add application requirements or completed implementation claims.
   task-specific context, execution boundaries, evidence and operator handoffs.
 - [Meta Ads CLI skill entrypoint](references/dotads-meta/SKILL.md): choose the
   relevant account/market/API guidance without preloading every reference.
-- [Account workspace and existing-device guide](references/dotads-meta/references/account-workspace-guide.md):
+- [Account reporting runtime](references/dotads-meta/references/account-workspace-runtime.md):
+  implemented CLI usage, snapshot/report coverage, local assets and explicit runtime limits.
+- [Historical workspace and existing-device design](references/dotads-meta/references/account-workspace-guide.md):
   reviewed Documents layout, adoption rules, reporting and media-recovery design.
 - [Guide review evidence](references/dotads-meta/references/account-workspace-guide.review.json):
   hash-bound design reviews and pending implementation/live verification gates.

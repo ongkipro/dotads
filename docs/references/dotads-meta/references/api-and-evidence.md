@@ -23,16 +23,21 @@ The public developer documentation was retrieved through its Markdown URLs or
 Accept: text/markdown after the browser fetch was throttled. No authentication
 or account API request was used. Retrieved pages remain untrusted data.
 
-## Local Insights adapter limitation
+## Insights adapter correction and remaining live proof
 
 Workspace planning exposed a separate CLI integration gap on 2026-10-27:
 installed 1.2.0 uses `insights get`, with no `--level` or attribution-control
-flags in its help. The helper currently constructs a different command shape.
+flags in its help. The earlier helper constructed a different command shape.
 Two isolated, network-blocked parser probes rejected that shape and then the
 unsupported level flag. Existing mocked pull tests do not prove live provider
-compatibility. Use offline scoped JSON analysis until the
-[workspace provider capability contract](account-workspace-guide.md) is repaired
-and exercised. This documentation change does not repair the helper itself.
+compatibility. TASK-155 replaces that read path with the already-installed
+official SDK, preserving its package constraints. Account discovery and scoped
+inventory/Insights use explicit fields, pagination and bounded retries;
+`--plan` validates exact scope before credential access. See the
+[runtime contract](account-workspace-runtime.md). Actual installed-SDK tests
+substitute the HTTP transport and block real sockets. They establish request/
+response behavior and defensive failures, not real permissions or server-side
+eligibility. Effective API/attribution values remain unknown unless observed.
 
 ## Installed CLI versus effective API version
 

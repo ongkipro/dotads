@@ -18,7 +18,7 @@ Operate Meta (Facebook & Instagram) Ads from the terminal using Meta's official 
 
 1. **Official Engine (`meta` CLI, `pipx install meta-ads==1.2.0`):** Handles Graph API / Marketing API calls, chunked multipart uploads for local images/videos, Dynamic Creative Optimization (DCO), Flexible Ad Format (`asset_feed_spec`), insights, and account guidance.
 2. **Dotfiles Orchestrator (`dotads-meta`):** Bridges `secrets-env` (`META_ACCESS_TOKEN` -> `ACCESS_TOKEN` in-memory without plaintext `.env` files), validates the declared manifest surface offline against ODAX, budget, conversion, attribution, and supported deprecation rules, runs dry-run plans by default, and executes idempotent L3->L1 creation with SHA-256 media caching in `.meta-state.json`.
-3. **Per-Project Workspace (outside `~/dotfiles`):** Each brand or store keeps its own `brand.json`, `campaigns/*.json`, `media/`, and git-ignored `.meta-state.json` (e.g. `~/Documents/work/ads/<brand>/` or `<repo>/ads/`). Never commit client videos, images, or campaign state into `~/dotfiles`.
+3. **Per-Project Workspace (outside `~/dotfiles`):** Confirmed root is `~/Documents/dotads-meta-report/` (`0700`), with one folder per account (`~/Documents/dotads-meta-report/act_<id>--<slug>/`) holding `brand.json`, `campaigns/*.json`, `media/`, `memory/`, and git-ignored `.meta-state.json`. Never commit client videos, images, or campaign state into `~/dotfiles`.
 
 `dotads-meta` is the dotfiles helper name; the underlying `meta-ads` package and `meta` binary keep their upstream names. Existing `brand.json`, campaign manifests, `.meta-state.json`, and `META_ADS_BIN` / `SECRETS_ENV_BIN` overrides need no migration.
 
@@ -39,9 +39,11 @@ Operate Meta (Facebook & Instagram) Ads from the terminal using Meta's official 
   human usage. The human owns goals/decisions; the AI executes within the
   existing authorization boundaries.
 - **Account reporting workspace or existing-device organization:** read the
-  [account workspace guide](references/account-workspace-guide.md). It defines
-  the planned Documents layout, adoption/recovery rules and AI/human read order;
-  automatic sync/report/import operations remain pending implementation.
+  [runtime guide](references/account-workspace-runtime.md) for scoped SDK
+  collection, saved snapshots, offline reports, media import and reference-only
+  adoption. The [revision 3 design](references/account-workspace-guide.md) is
+  historical context; current capabilities/limits belong to the runtime guide
+  and executable evidence. Real-account validation remains separate.
 - **General Indonesia market baseline:** for an explicitly selected `ID` market,
   run `dotads-meta baseline --market ID` and load
   [Indonesia market guidance](references/indonesia-market.md) as needed. Optional
@@ -124,13 +126,16 @@ For headless CLI automation across devices, use a **Business Manager System User
 dotads-meta setup
 ```
 Checks `meta` and can install it through `pipx` if missing. Use this bootstrap only when installation is authorized; it is unnecessary for offline validation or a read-only audit.
+Recovery queries pipx's effective shared-library path, attempts at most one
+repair/retry when shared pip is missing, and stops if either repair step fails.
+Installation success also requires the requested CLI version to be runnable.
 
-### Step 1: Scaffold a Brand Workspace
+### Step 1: Scaffold an Account / Brand Workspace
 ```bash
-mkdir -p ~/Documents/work/ads/brand-alpha
-dotads-meta init ~/Documents/work/ads/brand-alpha
+dotads-meta init act_1234567890--brand-alpha
+# or explicit path: dotads-meta init ~/Documents/dotads-meta-report/act_1234567890--brand-alpha
 ```
-This creates:
+This ensures `~/Documents/dotads-meta-report/` (`0700`) exists and creates:
 - `brand.json`: holds `ad_account_id` (`act_<digits>`), `business_id`, `page_id`, `instagram_user_id`, `pixel_id`, `conversion_domain`, `currency`, and `token_env` (default `"META_ACCESS_TOKEN"`).
 - `campaigns/sample-campaign.json`: declarative L3->L1 campaign manifest (`campaign`, `creatives`, `adsets`, `ads`).
 - `memory/ads-memory.json` & `memory/MEMORY.md`: per-brand economics assumptions,
@@ -139,19 +144,28 @@ This creates:
 - `media/`: directory for local `.jpg`, `.png`, `.webp`, `.mp4`, `.mov` assets.
 - `.gitignore`: excludes `.meta-state.json`, `.dotads-meta.lock/`, and `.env*`.
 
+Bare names always resolve under the Documents root, even when the current
+directory contains a matching name. Use `./name` or an absolute path for an
+explicit location. Root permissions must be verified; symlink workspace
+directories/files are rejected before scaffold files are written. Parents are
+operator-controlled; concurrent directory replacement is outside this bootstrap
+contract. An inferred folder ID is not proof of Meta access. Templates still
+contain example identity, currency, market and offer values to replace.
+This creates local scaffolding, not an account export, registry or report sync.
+
 ### Step 1b: Configure Conversion Unit Economics & Consult Brand Memory
 ```bash
 # Set AOV, COGS, shipping subsidy, COD RTS rate, and target net margin
-dotads-meta learn unit-economics --brand ~/Documents/work/ads/brand-alpha/brand.json \
+dotads-meta learn unit-economics --brand ~/Documents/dotads-meta-report/act_1234567890--brand-alpha/brand.json \
   --aov 250000 --cogs 75000 --shipping-fee 15000 --cod-rts-rate 0.12 --rts-penalty 20000 --target-margin 0.20
 
 # Review the evidence, scope, and age of existing observations before planning
-dotads-meta learn list --brand ~/Documents/work/ads/brand-alpha/brand.json
+dotads-meta learn list --brand ~/Documents/dotads-meta-report/act_1234567890--brand-alpha/brand.json
 ```
 
 ### Step 2: Offline Validation
 ```bash
-dotads-meta validate ~/Documents/work/ads/brand-alpha/campaigns/sample-campaign.json
+dotads-meta validate ~/Documents/dotads-meta-report/act_1234567890--brand-alpha/campaigns/sample-campaign.json
 ```
 Checks brand/manifest structure, budget exclusivity, conversion inputs,
 Flexible Format/DCO limits, retired fields/windows, attribution-mode compatibility,
@@ -162,23 +176,25 @@ certify account eligibility, all v26 features, or successful live requests.
 
 ### Step 3: Dry-Run Deployment Plan & Drift Check
 ```bash
-dotads-meta deploy ~/Documents/work/ads/brand-alpha/campaigns/sample-campaign.json
+dotads-meta deploy ~/Documents/dotads-meta-report/act_1234567890--brand-alpha/campaigns/sample-campaign.json
 ```
 Prints the exact `meta` CLI commands that will run, marks any entity already recorded in `.meta-state.json` as `SKIP`, and warns (`⚠ DRIFT`) if a deployed entity's local JSON spec changed without bumping its `key`. Makes zero network calls.
 
 ### Step 4: Execute Deployment & Inspect State (Requires User Approval)
 ```bash
-dotads-meta deploy ~/Documents/work/ads/brand-alpha/campaigns/sample-campaign.json --apply
-dotads-meta status ~/Documents/work/ads/brand-alpha/campaigns/sample-campaign.json
+dotads-meta deploy ~/Documents/dotads-meta-report/act_1234567890--brand-alpha/campaigns/sample-campaign.json --apply
+dotads-meta status ~/Documents/dotads-meta-report/act_1234567890--brand-alpha/campaigns/sample-campaign.json
 ```
 Executes `campaign create` -> `creative create` -> `adset create` -> `ad create` sequentially with `PAUSED` status, saving each returned ID and media `image_hash` / `video_id` immediately to `.meta-state.json`. If a step fails mid-run, re-running the command skips already-created steps and resumes from the failed step.
 
 ### Step 5: Analyze Conversion Performance & Harvest Multi-Source Memory
 
-Use a scoped saved Insights JSON export. The current helper's `analyze --pull`
-adapter is blocked against installed CLI 1.2.0: its command/flags are rejected
-before a request. See the [workspace capability contract](references/account-workspace-guide.md)
-before building a live collector; mocked pull tests do not establish provider compatibility.
+Use a scoped saved Insights JSON export for offline analysis. Authorized
+`analyze --pull` now uses the installed official SDK adapter with an explicit
+ad-level query; it does not pass unsupported flags to CLI 1.2.0. Read the
+[runtime contract](references/account-workspace-runtime.md) before account reads.
+Installed-SDK contract tests substitute HTTP; they do not establish actual
+account permissions, effective API version or business outcomes.
 
 ```bash
 # Offline analysis: declare the order basis only when the source establishes it

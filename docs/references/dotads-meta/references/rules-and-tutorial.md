@@ -23,7 +23,7 @@ test candidates, not a universal Meta requirement or verified performance optimu
 
 1. **Workspace Separation (`~/dotfiles` vs Project Data):**
    - `~/dotfiles` holds only CLI helpers (`bin/dotads-meta`, `bin/dotads-meta-test`) and skills (`skills/local/meta-ads-cli/`).
-   - Every brand or store workspace (`brand.json`, `campaigns/*.json`, `media/`, `.meta-state.json`) lives outside `~/dotfiles` (e.g. `~/Documents/work/ads/<brand-slug>/` or `<repo>/ads/`).
+   - Every account or brand workspace (`brand.json`, `campaigns/*.json`, `media/`, `.meta-state.json`) lives outside `~/dotfiles` under `~/Documents/dotads-meta-report/act_<id>--<slug>/` (or `<repo>/ads/`).
 2. **Zero Plaintext Secrets in Project Folders:**
    - Never create `.env` files with Meta tokens inside project workspaces, and never pass tokens via CLI flags (`--access-token`).
    - Store all System User tokens in `~/.config/ai-local/secrets.env` (`chmod 600`) and let `dotads-meta` inject `ACCESS_TOKEN` in-memory via `secrets-env get`.
@@ -63,6 +63,72 @@ experiments tied to the business objective, budget, audience constraints, and
 observed results. Do not claim a particular ad-set structure controls GEM's
 user-history access. Platform architecture alone does not justify switching
 attribution, removing targeting restrictions, or changing spend.
+
+### From delivery systems to campaign decisions
+
+An eligible audience defines who may receive the ad. Retrieval selects candidate
+ads; prediction/ranking estimates relevance and the chosen action or value. Meta's
+[auction explanation](https://about.fb.com/wp-content/uploads/2023/01/Toward_fairness_in_personalized_ads.pdf)
+(2023 foundation, pp. 15–16) combines bid, estimated action rate and ad quality
+to select delivery. Budget/pacing also affects opportunities. This is a conceptual
+explanation, not every current internal ranking stage or coefficient. Newer
+GEM/GenRecs sources explain representation learning and transfer; they do not
+publish a universal campaign layout. Optimizing clicks does not establish
+purchase or profit optimization, and a downstream reporting metric does not
+change the selected delivery objective by itself.
+
+### Campaign decision procedure
+
+Operational synthesis reviewed **2026-10-28**. Meta's
+[Performance 5](https://www.facebookblueprint.com/student/path/253157-performance-5)
+teaches simpler account structure, automation, creative diversification, data
+quality and results validation. The following choices are local starting
+hypotheses, not a Meta-certified optimum or a guaranteed ROAS recipe.
+
+1. **Define success:** distinguish purchase count, purchase value, qualified leads,
+   and profitable delivered orders. Specify currency, attribution, conversion
+   lag, target CPA/ROAS, contribution costs and acceptable test loss. ROAS and
+   conversion volume can trade off; a target needs business economics.
+2. **Validate the signal and destination:** verify the selected conversion event,
+   deduplication, values, consent and backend reconciliation; use
+   `meta-ads-signal-engine` for tracking work. Check landing-page relevance,
+   mobile completion, stock, checkout and delivery/payment constraints.
+3. **Begin with a structure the budget can support:** for one objective, market
+   and offer, one campaign with one prospecting ad set and a small batch of
+   distinct concepts is a testable starting point. Three to five ads can be an
+   illustrative batch when affordable; fewer may suit a small budget. This is
+   not an algorithm requirement. Classic DCO's one-ad constraint still applies.
+4. **Split only for a concrete reason:** separate serviceability, market/language,
+   economics, business goal or a controlled experiment. Separate retargeting
+   needs meaningful eligible demand and an explicit acquisition/exclusion plan.
+   CBO suits flexible allocation; ABO can reserve test budgets. Unequal delivery
+   does not prove a fair creative comparison; use a supported randomized test
+   when that comparison is the decision.
+5. **Choose audience and placement controls deliberately:** broad eligible reach
+   and suitable automation are candidates, subject to policy, serviceability,
+   brand and measurement constraints. Neither 21–65+ nor all genders is a
+   universal Indonesia default. Do not split every province/city from public
+   shopping statistics; those data are priors, not account conversion evidence.
+6. **Test meaningful creative differences:** vary the relevant customer problem,
+   benefit, demonstration, proof or format, retaining truthful offer facts.
+   Cosmetic variants alone do not test distinct propositions. Match customer
+   language to the explicit market and inspect actual placement previews.
+7. **Predeclare the decision window:** use expected CPA and affordable spend to
+   judge whether each planned cell can produce useful evidence. Document the
+   time horizon, conversion lag, uncertainty and stop-loss; do not invent a
+   universal 24-hour cutoff, purchase count or ROAS threshold. Diagnose signal,
+   funnel and economics before attributing failure to targeting or an engine.
+8. **Validate, iterate and scale deliberately:** compare consistent scopes and
+   backend outcomes, preserve a baseline and log material changes. A plausible
+   winner is provisional until further evidence supports it. Propose controlled
+   budget/creative changes within the approved risk; live writes and new spend
+   require their applicable approval. Record account learning privately and
+   review reusable methods before updating the shared skill.
+
+The [source record](api-and-evidence.md) explains retrieval, ranking and model
+transfer; these systems predict relevance and actions rather than expose a
+hidden advertiser-side "winning" switch. Use
+[economics and evidence rules](roas-cpr-profit-intelligence.md) when judging a test.
 
 ### 2. Marketing API v22.0–v26.0 Reference Matrix
 
@@ -440,9 +506,10 @@ Uses ABO with `"adset_budget_sharing": true` so each creative concept gets a ded
 
 Read commands need authorized account access. Update commands below are proposals;
 validate their exact installed syntax and obtain approval before live execution.
-The current helper live-pull adapter is blocked on CLI 1.2.0. Inspect native
-query controls locally and use saved scoped Insights JSON for analysis until
-the [workspace capability contract](account-workspace-guide.md) is verified.
+The helper read adapter uses the installed official SDK for explicit Insights
+scope; native CLI 1.2.0 still lacks the required level/attribution flags. Read
+the [runtime contract](account-workspace-runtime.md). Saved scoped JSON is the
+offline alternative; SDK fixture coverage does not prove actual account access.
 
 ```bash
 # 1. Inspect supported Insights controls (local help; no credentials required)

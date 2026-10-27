@@ -2,7 +2,7 @@
   "schema_version": 1,
   "canonical_repository": "ongkipro/dotfiles",
   "canonical_bundle_path": "skills/local/meta-ads-cli",
-  "source_base_commit": "5f05f4f1c77824984bf331fbd72c9c04cff0ac30",
+  "source_base_commit": "2fcf82afa8ef077535265684de1fdbbfbf9a47ff",
   "source_snapshot_state": "COMMITTED_SOURCE_SNAPSHOT",
   "mirror_role": "Documentation reference only; no application implementation or tenant access is implied",
   "guide_revision": 3,
@@ -10,11 +10,11 @@
   "files": [
     {
       "path": "GUIDE.id.md",
-      "sha256": "d0b91e7d597c8533f0da3e9a4d751d1c09c5ff9eba6ad94f8a8c34d8e684dcd9"
+      "sha256": "d60cb586f4ce979e48e5adfb48484ee60bf3fda5e9508ed90707ef185f0b4cf1"
     },
     {
       "path": "SKILL.md",
-      "sha256": "db86891e92de41fd6984247d6e03a5909628f640eac9d9ccc41dced4dbf9fb7d"
+      "sha256": "471bb069144ceb39776b7bbcaea34dd8cf573ecb783fa6dc73c27e9e2860e6c3"
     },
     {
       "path": "references/account-workspace-guide.md",
@@ -22,11 +22,15 @@
     },
     {
       "path": "references/account-workspace-guide.review.json",
-      "sha256": "9ce569afe6ef8bcee4abcd923479425afe1bb7061b3eb32c94c9e2cc95ad49eb"
+      "sha256": "503812ece321598f273eb8824984bdf34c132a755ffa0f273acf238db5ba8882"
+    },
+    {
+      "path": "references/account-workspace-runtime.md",
+      "sha256": "9bef357d7afc9f51f2aac480c0246ac1c801c6f58fb82d34856ec9adb480628a"
     },
     {
       "path": "references/api-and-evidence.md",
-      "sha256": "4ac1f1dc859cd70caa653deeba88c078eecb127f44fc6c4c4141195465af2767"
+      "sha256": "50a23dce48ed2c24b90aa1900eafc2584e7eeef2ed85f9cc0214d6aaf020c708"
     },
     {
       "path": "references/indonesia-baseline.json",
@@ -38,15 +42,15 @@
     },
     {
       "path": "references/roas-cpr-profit-intelligence.md",
-      "sha256": "47806d0a11e2c5ad7878d487fd8f53ae84d3d3872583c531c4e3df565f17083b"
+      "sha256": "9e5eca1671c0c924cdccd1880364f1c937edf2c6328d85a904f979e7a4c49310"
     },
     {
       "path": "references/rules-and-tutorial.md",
-      "sha256": "90781b6c23db3c217a037287fbad34d4202225ca1f271f137b0d2600cfea3d3f"
+      "sha256": "097b31fe32aa2e32f2a43107e908cadca9d014c78c51c27b6c337964f87b68f2"
     },
     {
       "path": "references/terminal-control.md",
-      "sha256": "a895374d809536208db8f197f123e63e4f80350c46c6218d0a30312a79a0493a"
+      "sha256": "7b4977368096e6cc38e17cbbd97108c5d56a0f8d46ae3fa48c8f56f88c60f1ac"
     }
   ],
   "update_policy": [
@@ -55,5 +59,5 @@
     "Refresh this file list and verify every content hash",
     "Do not copy private account reports, media, credentials or deployment state"
   ],
-  "source_commit": "c75454399bf25fe562c6bb8c01e784bcb97bd1eb"
+  "source_commit": "b70a22721bb4c2bd83a39904d36b9ed38aa99730"
 }

@@ -14,10 +14,25 @@ or existing-device adoption. API, market and economics references are conditiona
 not startup context. Inspect actual repository/workspace state before relying on
 memory or a handoff.
 
+For cross-session navigation, use the on-demand
+[Meta knowledge card](https://github.com/ongkipro/dotfiles/blob/main/config/ai/memory/meta-ads.md). Algorithm sources,
+campaign decisions and economics remain in their owning references. Keep each
+account's experiments and results in its private workspace; inspect those
+records when planning the next campaign. Review de-identified reusable findings
+before changing the shared skill. This is a reviewed learning workflow, not an
+automatic retraining or knowledge-promotion claim.
+
 The guide stores reusable procedure, not current account truth. Shared dotfiles
 carry documentation/configuration; private reports, assets and credentials require
 their own authorized device transfer. This CLI reference does not establish
 authorization inside the separate multi-tenant DotAds application.
+
+`init name` selects the Documents root; `init ./name` or an absolute path selects
+an explicit location. Read the [runtime guide](account-workspace-runtime.md) for
+account discovery, registry/snapshots, report rendering, local asset import and
+selected-project adoption. Preserve existing state and treat scaffold IDs as
+unverified until independently matched to the account. Existing unregistered
+root folders need explicit selection; never guess which folder to adopt.
 
 ## Resolve the task before choosing commands
 
@@ -27,11 +42,11 @@ authorization inside the separate multi-tenant DotAds application.
 | Offline analysis | Use the selected authorized files and validate account/currency, measurement scope, order basis and relevant costs. Mixed-brand account costs are not universal. |
 | Local campaign preparation | Reuse existing workspace ownership/state. Validate and dry-run; show concrete target entities, budget units and expected effects. |
 | Account reads or live writes | Resolve the intended account and access scope; apply the existing SKILL/session gates. Available credentials are not blanket authorization. |
-| Automatic reporting or managed import | These workflows remain planned. Do not invent commands, populated folders, successful syncs or completed transfers. An implementation request follows engineering delivery with verification. |
+| Reporting or managed import | Use scoped `sync`/`report`/`import-media`; inspect coverage and exact input provenance. A completed local scaffold/export import is not proof of authenticated API access. Scheduling, network resume and full operational cutover remain separate work. |
 
-The current `analyze --pull` adapter is incompatible with inspected CLI 1.2.0.
-Use scoped offline inputs until the provider contract is repaired and exercised.
-Local help/version evidence and mocked fixtures do not prove live compatibility.
+The current read adapter uses the installed official SDK; it bypasses CLI
+1.2.0's unsupported Insights flags. Local help/version evidence and installed-SDK
+HTTP fixtures do not prove actual account permissions or effective server behavior.
 Recheck relevant evidence on a new device/version or contradictory behavior;
 reuse valid evidence when the environment and scope remain unchanged.
 
@@ -85,3 +100,6 @@ handoff text is not fresh permission by itself.
 Do not call a requested operation complete until its relevant checks ran. For
 planned capabilities, deliver a reviewable specification/implementation plan and
 state that runtime execution remains pending.
+
+Keep historical approval hashes unchanged. Bind a new review to changed files;
+an updated hash beside an old reviewer name is not approval of the new content.

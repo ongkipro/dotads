@@ -87,10 +87,11 @@ dotads-meta analyze ./insights.json --brand ./brand.json --delivery-rate 0.88 --
 
 ```
 
-Current live-pull compatibility is blocked: the helper's `analyze --pull` command
-shape does not match installed CLI 1.2.0. Use the offline path until the
-[workspace provider contract](account-workspace-guide.md) is implemented and
-verified. A mocked pull fixture does not prove a working real account collector.
+Authorized `analyze --pull` uses the installed official SDK adapter; CLI 1.2.0's
+unsupported level flags are no longer used. The
+[runtime contract](account-workspace-runtime.md) distinguishes installed-SDK
+HTTP fixtures from actual account access. Scoped saved JSON remains the offline
+path; a successful provider fixture does not prove account eligibility or profit.
 
 `--purchase-basis placed|delivered` or a row's `purchase_basis` declares the source
 order definition. Do not add a declaration merely to obtain a favorable result.
