@@ -1,5 +1,12 @@
 # DotAds Engine v2 - Build & Verification Audit Log
 
+## Log Entry - 2026-10-28: Maintainer entry points and reference synchronization
+
+- **Documentation:** Keep the root README minimal and retain local setup plus the existing external CLI reference links in `docs/README.md`. The specification index remains the read-order owner.
+- **Reference provenance:** The existing 11-file CLI reference bundle remains pinned to canonical dotfiles commit `b70a22721bb4c2bd83a39904d36b9ed38aa99730`; its content hashes are unchanged by this documentation edit.
+- **Verification:** Relative links, exact quick-start preservation, external reference links and all 11 mirror hashes passed focused checks. Unrelated application edits remain byte-identical; no application build or live request was run for this documentation update.
+- **Boundaries:** Public files remain searchable. This edit adds no indexing control, application feature, live-account proof or application-wide test result.
+
 ## Log Entry - 2026-08-14: Super Admin Control Plane & OpenAPI Platform Router Completion
 - **Action:** Completed Super Admin control plane architecture, specification (`SUPER_ADMIN_ARCHITECTURE.md`), OpenAPI sub-router (`/api/v1/platform/*`), and navigation UX streamlining into collapsible logical groups.
 - **OpenAPI Platform Endpoints:** Implemented `GET /stats` (fleet metrics & GMV aggregate), `GET /tenants` (fleet list), `POST /tenants` (provisioning), `PATCH /tenants/:id/status` (activate/suspend), `POST /tenants/:id/impersonate` (session token), and `GET /audit-logs`.
