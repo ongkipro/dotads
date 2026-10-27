@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "canonical_repository": "ongkipro/dotfiles",
+  "canonical_bundle_path": "skills/local/meta-ads-cli",
+  "source_base_commit": "5f05f4f1c77824984bf331fbd72c9c04cff0ac30",
+  "source_snapshot_state": "COMMITTED_SOURCE_SNAPSHOT",
+  "mirror_role": "Documentation reference only; no application implementation or tenant access is implied",
+  "guide_revision": 3,
+  "guide_review_file": "references/account-workspace-guide.review.json",
+  "files": [
+    {
+      "path": "GUIDE.id.md",
+      "sha256": "d0b91e7d597c8533f0da3e9a4d751d1c09c5ff9eba6ad94f8a8c34d8e684dcd9"
+    },
+    {
+      "path": "SKILL.md",
+      "sha256": "db86891e92de41fd6984247d6e03a5909628f640eac9d9ccc41dced4dbf9fb7d"
+    },
+    {
+      "path": "references/account-workspace-guide.md",
+      "sha256": "d2737ca308e194d0ee4edb43f252f8c3fdce1513c95337595da1987371ba526b"
+    },
+    {
+      "path": "references/account-workspace-guide.review.json",
+      "sha256": "9ce569afe6ef8bcee4abcd923479425afe1bb7061b3eb32c94c9e2cc95ad49eb"
+    },
+    {
+      "path": "references/api-and-evidence.md",
+      "sha256": "4ac1f1dc859cd70caa653deeba88c078eecb127f44fc6c4c4141195465af2767"
+    },
+    {
+      "path": "references/indonesia-baseline.json",
+      "sha256": "49588a79e52fcc5e88f081a2395bc8c9859092a6d949951ee669ab6753072381"
+    },
+    {
+      "path": "references/indonesia-market.md",
+      "sha256": "457978b8189c42d2641f01a31a769bb400f260a3c26d955e799a7bba478230fb"
+    },
+    {
+      "path": "references/roas-cpr-profit-intelligence.md",
+      "sha256": "47806d0a11e2c5ad7878d487fd8f53ae84d3d3872583c531c4e3df565f17083b"
+    },
+    {
+      "path": "references/rules-and-tutorial.md",
+      "sha256": "90781b6c23db3c217a037287fbad34d4202225ca1f271f137b0d2600cfea3d3f"
+    },
+    {
+      "path": "references/terminal-control.md",
+      "sha256": "a895374d809536208db8f197f123e63e4f80350c46c6218d0a30312a79a0493a"
+    }
+  ],
+  "update_policy": [
+    "Edit the canonical dotfiles source and review changed contracts",
+    "Copy the complete documentation bundle preserving relative paths",
+    "Refresh this file list and verify every content hash",
+    "Do not copy private account reports, media, credentials or deployment state"
+  ],
+  "source_commit": "c75454399bf25fe562c6bb8c01e784bcb97bd1eb"
+}

@@ -24,6 +24,24 @@
 16. **`BUILD-LOG.md`** — Audit Log: Chronological verification entries and cross-validation results.
 17. **`HISTORY.md`** — Refactoring History: CMSAds v1.0 → DotAds v2 rebrand, architecture shift, and multi-platform signal engine evolution.
 
+## External CLI References
+
+This optional reference bundle is separate from the core specification-pack count
+and does not add application requirements or completed implementation claims.
+
+- [Bahasa Indonesia operator guide](references/dotads-meta/GUIDE.id.md): daily
+  usage, AI prompts, tutorials, device handoffs and troubleshooting for humans.
+- [English AI terminal contract](references/dotads-meta/references/terminal-control.md):
+  task-specific context, execution boundaries, evidence and operator handoffs.
+- [Meta Ads CLI skill entrypoint](references/dotads-meta/SKILL.md): choose the
+  relevant account/market/API guidance without preloading every reference.
+- [Account workspace and existing-device guide](references/dotads-meta/references/account-workspace-guide.md):
+  reviewed Documents layout, adoption rules, reporting and media-recovery design.
+- [Guide review evidence](references/dotads-meta/references/account-workspace-guide.review.json):
+  hash-bound design reviews and pending implementation/live verification gates.
+- [Mirror manifest](references/dotads-meta/mirror.json): canonical source and
+  hashes for the full mirrored skill/reference bundle.
+
 ## Cross-Reference Matrix
 
 | Domain | Requirements | Tasks | Detail Spec |

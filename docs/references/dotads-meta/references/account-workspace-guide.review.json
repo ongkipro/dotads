@@ -1,0 +1,114 @@
+{
+  "document": "account-workspace-guide.md",
+  "revision": 3,
+  "document_sha256": "d2737ca308e194d0ee4edb43f252f8c3fdce1513c95337595da1987371ba526b",
+  "review_date": "2026-10-27",
+  "readiness": "APPROVED_FOR_DESIGN_AND_IMPLEMENTATION_PLANNING",
+  "implementation_status": "NOT_IMPLEMENTED",
+  "canonical_repository": "ongkipro/dotfiles",
+  "canonical_document": "skills/local/meta-ads-cli/references/account-workspace-guide.md",
+  "confirmed_workspace_root": "~/Documents/dotads-meta-report/",
+  "independent_reviews": [
+    {
+      "reviewer": "/root/workspace_data_audit",
+      "result": "APPROVE_FOR_DESIGN_PLANNING",
+      "reviewed_sha256": "d2737ca308e194d0ee4edb43f252f8c3fdce1513c95337595da1987371ba526b",
+      "scope": [
+        "identity/query/economics/report contracts",
+        "existing-device organization",
+        "canonical-source and mirror policy"
+      ]
+    },
+    {
+      "reviewer": "/root/workspace_media_audit",
+      "result": "APPROVE_FOR_DESIGN_PLANNING",
+      "reviewed_sha256": "d2737ca308e194d0ee4edb43f252f8c3fdce1513c95337595da1987371ba526b",
+      "scope": [
+        "adoption/media/recovery/human notes",
+        "existing-device playbook",
+        "realistic source cleanup and rollback"
+      ]
+    }
+  ],
+  "canonical_bundle_consistency_review": {
+    "reviewer": "/root/workspace_media_audit",
+    "result": "APPROVE_DOC_DELTAS",
+    "scope": [
+      "SKILL routing marks planned operations pending",
+      "broken runnable live-pull examples removed",
+      "Insights help, guidance list and positional campaign ID syntax aligned",
+      "API record states the helper integration is not repaired"
+    ]
+  },
+  "evidence_notes": [
+    "Earlier revision2 research snapshot and its hash-bound review remain historical records",
+    "Installed CLI1.2.0/SDK24.0.1 metadata and SDK parameter/cursor primitives were inspected locally",
+    "Actual CLI parser rejected the documented helper Insights shape with zero network attempts",
+    "Revision3 approvals concern documentation and planning, not executed migration or reporting"
+  ],
+  "remaining_implementation_gates": [
+    "Repair and exercise provider capability/response/pagination contract",
+    "Implement/test registry identity, locking and existing-device adoption scenarios",
+    "Implement/test query grain, scoped economics and immutable report/enrichment reproduction",
+    "Implement/test publication pointers and partial/failed/empty response recovery",
+    "Implement/test import source-claim/durability/filesystem/recovery and rollback",
+    "Verify explicitly authorized real-account access and effective API behavior",
+    "Run human and fresh-AI workflow trials"
+  ],
+  "publication_policy": "The DotAds documentation mirror must match mirror.json hashes; no automatic mirror updater is installed.",
+  "not_executed": [
+    "real credentials/account reads",
+    "actual media/device reorganization",
+    "reporting CLI implementation",
+    "live ad mutations",
+    "commit or push"
+  ],
+  "operator_terminal_guides_review": {
+    "review_date": "2026-10-27",
+    "result": "APPROVED_DOCUMENTATION_DELTA",
+    "files": [
+      {
+        "path": "GUIDE.id.md",
+        "sha256": "d0b91e7d597c8533f0da3e9a4d751d1c09c5ff9eba6ad94f8a8c34d8e684dcd9"
+      },
+      {
+        "path": "references/terminal-control.md",
+        "sha256": "a895374d809536208db8f197f123e63e4f80350c46c6218d0a30312a79a0493a"
+      },
+      {
+        "path": "SKILL.md",
+        "sha256": "db86891e92de41fd6984247d6e03a5909628f640eac9d9ccc41dced4dbf9fb7d"
+      }
+    ],
+    "independent_reviewer": "/root/workspace_data_audit",
+    "review_scope": [
+      "Current versus planned capabilities",
+      "Operator authority and AI execution boundaries",
+      "Device portability and explicit market selection",
+      "Conditional English/Indonesian context loading"
+    ],
+    "forward_trial": {
+      "reviewer": "/root/operator_guide_trial",
+      "mode": "READ_ONLY_HYPOTHETICAL_OPERATOR_REQUESTS",
+      "cases": [
+        "Public ID/province/city baseline without account or product",
+        "Old-device handoff with missing account ID and broad Downloads transfer request",
+        "Selected offline JSON analysis without costs, followed by campaign planning"
+      ],
+      "observed_result": "Task routing, unknown costs, account identity gaps, planned capabilities and mutation boundaries were preserved; no material documentation blocker found",
+      "not_executed": [
+        "Actual account access or sync",
+        "Media transfer",
+        "Live mutations",
+        "Real human usability trial"
+      ]
+    },
+    "executed_offline_checks": [
+      "dotads-meta --help",
+      "meta --version (1.2.0)",
+      "meta ads insights get --help",
+      "dotads-meta baseline --market ID --province \"Jawa Barat\" --city \"Kota Depok\""
+    ],
+    "limits": "Documentation and read-only decision evidence; does not validate unimplemented reporting/import workflows or live provider behavior"
+  }
+}
